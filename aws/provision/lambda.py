@@ -10,13 +10,13 @@ from urllib import request
 # TEAM= REPLACE_TEAM_HERE
 # TEAM_POOL= REPLACE_POOL_OU_HERE
 
-REPO_OWNER = "cldcvr"
-REPO_NAME = "aws-sandbox-provisioner"
+REPO_OWNER = "REPLACE_REPO_OWNER_HERE"
+REPO_NAME = "REPLACE_REPO_NAME_HERE"
 
 
 def get_secret():
-    secret_name = "sandbox/git"
-    region_name = "us-east-1"
+    secret_name = "REPLACE_SECRET_NAME_HERE"
+    region_name = "REPLACE_AWS_DEFAULT_REGION"
 
     # Create a Secrets Manager client
     session = boto3.session.Session()
@@ -34,7 +34,7 @@ def get_secret():
 
     # Decrypt secret
     secret = get_secret_value_response['SecretString']
-    git_token = (json.loads(secret))['git_token']
+    git_token = (json.loads(secret))['REPLACE_SECRET_KEY_NAME_HERE']
 
     return git_token
 
