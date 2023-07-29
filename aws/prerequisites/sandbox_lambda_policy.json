@@ -10,7 +10,7 @@
         "secretsmanager:DescribeSecret",
         "secretsmanager:ListSecretVersionIds"
       ],
-      "Resource": "arn:aws:secretsmanager:us-east-1:409734486032:secret:sandbox/git-*"
+      "Resource": "arn:aws:secretsmanager:REPLACE_AWS_DEFAULT_REGION:REPLACE_AWS_MANAGEMENT_ACCOUNT:secret:REPLACE_SECRET_NAME_HERE-*"
     },
     {
       "Sid": "VisualEditor1",
