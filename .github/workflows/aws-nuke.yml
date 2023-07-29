@@ -1,0 +1,195 @@
+name: AWS nuke
+run-name: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }} - AWS nuke sandbox account for ${{ github.event.client_payload.USER_EMAIL }}
+
+on:
+  repository_dispatch:
+    types: [ aws_sandbox_nuke ]
+
+env:
+  ACCOUNT_ID: "559677651209" #Management account
+  AWS_REGION: "us-east-1"
+  ORG_MANAGEMENT_ROLE: "OrganizationAccountAccessRole"
+  SSO_INSTANCE_ARN: "arn:aws:sso:::instance/ssoins-72230e0790e87c67"
+  IDENTITY_STORE_ID: "d-90676437e3"
+  ROLE_NAME: "account-management-switch-role"
+  HELPDESK_URL: 'https://cloudcover-helpdesk.freshdesk.com'
+  ACCOUNT_ID_TO_NUKE: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}
+
+defaults:
+  run:
+   shell: bash
+
+jobs:
+  nuke-setup:
+    name: "aws-nuke"
+    runs-on: "cldcvr-pvt-runner-aws"    
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: 'Cleanup build folder and install aws cli'
+        id: skip_step
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+          if [ ${{ github.event.client_payload.TICKET_ID }} -eq 0 ]; then
+              echo "SKIP=true" >> $GITHUB_OUTPUT
+          else
+              echo "SKIP=false" >> $GITHUB_OUTPUT
+          fi
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          rm /tmp/awscliv2.zip
+          sudo /tmp/aws/install --update
+          rm -rf /tmp/aws/
+      - name: "Load secrets from 1Password"
+        uses: 1password/load-secrets-action@v1.3.1
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          FRESHDESK_API: op://cldcvr-admins-common-vault/FRESHDESK_TOKEN_AUDIT_CLDCVR/credential
+          SANDBOX_SLACK_WEBHOOK: op://cldcvr-sandbox-provisioner-vault/SANDBOX_SLACK_WEBHOOK/password
+
+      - name: "Remind user about access expiring in 15 minutes"
+        if: ${{ steps.skip_step.outputs.SKIP == 'false' }}
+        run: |
+
+          curl -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body": "<h2>IMPORTANT</h2> Access to temporary aws sandbox will be <b>revoked in 15 minutes</b>, please take necessary action if required. <br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
+
+          DURATION=900
+          ANIMATION_CHARS="-\|/"
+          END_TIME=$((SECONDS + DURATION))
+          while [ $SECONDS -lt $END_TIME ]; do
+            REMAINING_TIME=$((END_TIME - SECONDS))
+            ANIMATION_INDEX=$((SECONDS % ${#ANIMATION_CHARS}))
+            printf "\r%s %02d:%02d:%02d %c" "Waiting: 🕒" $((REMAINING_TIME / 3600)) $(((REMAINING_TIME / 60) % 60)) $((REMAINING_TIME % 60)) "${ANIMATION_CHARS:$ANIMATION_INDEX:1}"
+            sleep 30
+          done
+          echo -e "\nTime for cleanup 🧹🗑️"
+      - name: "Clone Git Repo"
+        uses: actions/checkout@v2.3.5
+      - name: "Setup aws-nuke"
+        run: |
+          wget -c https://github.com/rebuy-de/aws-nuke/releases/download/v2.16.0/aws-nuke-v2.16.0-linux-amd64.tar.gz
+          tar -xvf aws-nuke-v2.16.0-linux-amd64.tar.gz
+          mv aws-nuke-v2.16.0-linux-amd64 aws-nuke
+          sudo mv aws-nuke /usr/local/bin/aws-nuke
+          rm aws-nuke-v2.16.0-linux-amd64.tar.gz
+      - name: "Configure creds for mgmt account"
+        run: |
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.ACCOUNT_ID}}:role/${{env.ROLE_NAME}}" --role-session-name "${{env.ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          unset AWS_ACCESS_KEY_ID
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+          AWS_ACCESS_KEY_ID=${CREDS[0]}
+          echo "::add-mask::$AWS_ACCESS_KEY_ID"
+          echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+          AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+          echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+          AWS_SESSION_TOKEN=${CREDS[2]}
+          echo "::add-mask::$AWS_SESSION_TOKEN"
+          echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+
+      - name: "Remove SSO access for all users from ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
+        run: bash aws/cleanup/remove_sso.sh
+      - name: "Configure AWS credentials for ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }} account provisioned as temporary sandbox"
+        run: |
+          aws configure list
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}:role/${{ env.ORG_MANAGEMENT_ROLE }}" --role-session-name "${{env.ORG_MANAGEMENT_ROLE}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          unset AWS_ACCESS_KEY_ID
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+          
+          AWS_ACCESS_KEY_ID=${CREDS[0]}
+          echo "::add-mask::$AWS_ACCESS_KEY_ID"
+          echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+          AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+          echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+          AWS_SESSION_TOKEN=${CREDS[2]}
+          echo "::add-mask::$AWS_SESSION_TOKEN"
+          echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+      - name: "Validate account to nuke, update nuke config and set account alias"
+        run: |
+          if [ $(aws sts get-caller-identity --output json | jq -r '.Account') -ne "${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}" ]; then
+            echo "Not correct Account"
+            aws sts get-caller-identity --output json | jq -r '.Account'
+            exit 1
+          fi
+          
+          echo "Updating the account id in nuke config"
+          awk '{sub(/REPLACE_ACCOUNT_ID/,"${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"); print}' aws/cleanup/nuke-config.yaml > nuke-config.yaml
+          echo "Review the account id and nuke config"
+          cat nuke-config.yaml
+          
+          if [ -z $(aws iam list-account-aliases --query 'AccountAliases[*]' --output text) ]; then
+            echo "Setting account alias"
+            aws iam create-account-alias --account-alias "cse-sandbox-pool-${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
+          else
+            echo "Account alias already exists"
+          fi
+      - name: "Run aws-nuke"
+        run: |
+          echo "Cleaning all the resources in the sandbox account - ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
+          aws-nuke -c nuke-config.yaml --force --force-sleep 5 --no-dry-run 2>&1 | tee -a ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_artifact_1.txt
+        continue-on-error: true
+      - name: "Configure AWS credentials for ${{env.ACCOUNT_ID}} account - management"
+        run: |
+          unset AWS_ACCESS_KEY_ID
+          unset AWS_SECRET_ACCESS_KEY
+          unset AWS_SESSION_TOKEN
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.ACCOUNT_ID}}:role/${{env.ROLE_NAME}}" --role-session-name "${{env.ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          AWS_ACCESS_KEY_ID=${CREDS[0]}
+          echo "::add-mask::$AWS_ACCESS_KEY_ID"
+          echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+          AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+          echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+          echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+          AWS_SESSION_TOKEN=${CREDS[2]}
+          echo "::add-mask::$AWS_SESSION_TOKEN"
+          echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+
+      - name: "Move account to pool and Cleanup Lambda, Cloudwatch from management account"
+        env:
+          FUNCTION_NAME: temp_sandbox_${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}
+          SANDBOX_OU_ID: ${{ github.event.client_payload.SANDBOX_OU_ID }}
+          POOL_OU_ID: ${{ github.event.client_payload.POOL_OU_ID }}
+        run: |
+          echo "Moving $NEW_ACCOUNT_ID from Sandbox OU $SANDBOX_OU_ID to Suspended OU $POOL_OU_ID"
+          aws organizations move-account \
+              --account-id $ACCOUNT_ID_TO_NUKE \
+              --source-parent-id ${SANDBOX_OU_ID} \
+              --destination-parent-id ${POOL_OU_ID}
+          
+          #get rule id and remove the target from rule
+          aws events remove-targets --ids $(aws events list-targets-by-rule --rule $FUNCTION_NAME --query 'Targets[*].Id' --output text) --rule $FUNCTION_NAME
+          
+          aws lambda delete-function --function-name $FUNCTION_NAME
+          
+          aws events delete-rule --name $FUNCTION_NAME
+          
+          echo "Lambda function and event bridge schedule rule deleted for account : ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: workflow artifact
+          path: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_artifact_1.txt
+      - name: "Add account access revoked comment on ticket"
+        if: ${{ steps.skip_step.outputs.SKIP == 'false' }}
+        run: |
+          curl -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body": "Access to temporary sandbox revoked</b> <br><br>Thankyou. <br><br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
+
+      - name: "Workflow Status Slack Notification"
+        if: failure()
+        uses: cldcvr/slack-notify-action@main
+        with:
+          message: "AWS Sandbox Provisioner - Nuke workflow has failed"
+          status: ${{ job.status }}
+          SLACK_WEBHOOK_URL: ${{ env.SANDBOX_SLACK_WEBHOOK }}
+
+# --no-dry-run flag is required to actually clean up the resources

@@ -1,0 +1,61 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VisualEditor0",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:ListRoots",
+        "sso:CreateAccountAssignment",
+        "sso:DescribeAccountAssignmentCreationStatus",
+        "lambda:GetLayerVersion",
+        "lambda:GetFunction",
+        "identitystore:ListUsers",
+        "sso:DeleteAccountAssignment",
+        "iam:ListRoles",
+        "organizations:CreateAccount",
+        "organizations:ListAccountsForParent",
+        "sso:ListAccountAssignments",
+        "iam:PassRole",
+        "organizations:ListAccounts",
+        "organizations:ListParents",
+        "events:ListRules",
+        "lambda:ListLayerVersions",
+        "lambda:ListLayers",
+        "sts:GetCallerIdentity",
+        "organizations:MoveAccount",
+        "sso:DescribeAccountAssignmentDeletionStatus",
+        "organizations:DescribeCreateAccountStatus"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "VisualEditor1",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutEvents",
+        "lambda:CreateFunction",
+        "events:DescribeRule",
+        "events:CreateEventBus",
+        "lambda:GetFunction",
+        "events:PutRule",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateAlias",
+        "events:DeleteRule",
+        "events:PutTargets",
+        "sts:AssumeRole",
+        "lambda:AddPermission",
+        "events:RemoveTargets",
+        "lambda:DeleteFunction",
+        "events:ListTargetsByRule",
+        "lambda:CreateAlias"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+        "arn:aws:events:us-east-1:409734486032:rule/temp_sandbox*",
+        "arn:aws:lambda:us-east-1:409734486032:function:temp_sandbox*"
+      ]
+    }
+  ]
+}
