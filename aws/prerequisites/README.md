@@ -1,61 +1,56 @@
-# AWS IAM Policy and Role Provisioning Script (prerequisite.sh)
+# AWS Sandbox Provisioner Workflow Prerequisite Setup
 
-This script is designed to automate the creation of AWS IAM policies and roles in the AWS Management Account. It is particularly useful for setting up necessary permissions for managing AWS accounts programmatically.
+## Overview
+
+This script helps to setup the pre-requisites required for the Sandbox Provisioner workflow to execute properly
 
 ## Prerequisites
 
-Before executing the script, please ensure you have the following:
+Before using this workflow, make sure you have the following prerequisites:
 
-1. **AWS CLI Installed**: The AWS Command Line Interface (CLI) should be installed on your system. If not installed, please refer to the official AWS documentation for installation instructions.
+1. An AWS Management account of the organization with the necessary permissions to create IAM policies, roles, and manage Secrets Manager.
+2. AWS CLI installed and configured with valid credentials.
+3. A valid GitHub token (GITHUB_TOKEN) which will be stored in AWS Secrets Manager and used to trigger the cleanup workflow in github using `repository_dispatch` event
 
-2. **AWS CLI Configuration**: Ensure that the AWS CLI is configured with valid credentials. If you haven't already done this, run `aws configure` and follow the prompts to set up your access key, secret key, and default region.
+## Quick Start Guide 🚀
 
-3. **JSON Policy Files**: Prepare two JSON policy files containing the policies you want to create. Ensure these files are correctly formatted and contain valid IAM policy documents.
+1. Clone this repository to your local machine.
 
-## How to Execute the Script
+2. **Update Configuration:**
 
-1. Clone or download the script to your local machine.
+   Before running the workflow, you may need to adjust some configuration values in the `prerequisite.sh` script. Open the script and modify the configuration section according to your specific requirements. **[Can keep it as it is]**
+   ```bash
+    # Configuration variables
+    export policy_name="SandboxProvisionerPolicy"
+    export policy_file="sandbox_provisioner_policy.json"
+    export role_name="SandboxAccountManagementRole"
+    export lambda_policy_name="SandboxLambdaPolicy"
+    export lambda_policy_file="sandbox_lambda_policy.json"
+    export lambda_role_name="SandboxLambdaRole"
+    export SECRET_NAME="sandbox/git"
+    export SECRET_KEY_NAME="git_token"
+    export AWS_DEFAULT_REGION="us-east-1"
+   ```
 
-2. Open a terminal or command prompt and navigate to the directory containing the script.
-
-3. Make sure the script file has executable permissions. If not, give it the necessary permissions using the following command:
-
+4. **Run the Script:**
+   Once any modifications above are completed. run the script and floow the prompts
 ```bash
-chmod +x prerequisite.sh
+bash prerequisite.sh
 ```
-4. Update the script with the correct policy and role names, as well as the file paths to your JSON policy files. Look for the variables near the beginning of the script and modify them accordingly:
 
-```bash
-policy_name="sandbox_provisioner_policy"
-policy_file="sandbox_provisioner_policy.json"
-role_name="sandbox-account-management-role"
-lambda_policy_name="sandbox_lambda_policy"
-lambda_policy_file="sandbox_lambda_policy.json"
-lambda_role_name="account_management_lambda_role"
-```
-5. Run the script by executing the following command:
-```bash
-./prerequisite.sh
-```
-## What to Expect After Script Execution
+5. **Verify Script execution and Resources created in management account:**
 
-1. The script will check if the AWS CLI is installed and properly configured with valid credentials. If not, it will prompt you to install and configure the AWS CLI before proceeding.
+   The script will create below resources if the default variable names were used
+    * Modify the policy files under `aws/prerequisites` and update variables
+    * Policies named `SandboxProvisionerPolicy` and `SandboxAccountManagementRole`
+    * Roles named `SandboxAccountManagementRole` and `SandboxLambdaRole`
+    * Create a secret in AWS secret manager and store `GITHUB_TOKEN`
+    * Modify the `lambda.py` file present under `aws/provision` and update variables
+    * Modify the workflows under `.github/workflows` and update variables
 
-2. It will validate the existence and readability of the JSON policy files specified in the script. If any of the files are missing or invalid, the script will display an error and terminate.
+## Important Notes
 
-3. The script will then check if the specified policies and roles already exist in the AWS Management Account. If they do, it will prompt you whether to reuse the existing resources or create new ones.
+1. The IAM policies (`sandbox_provisioner_policy.json` and `sandbox_lambda_policy.json`) define the permissions granted to the sandbox provisioner workflow and lambda function respectively. Review the policies to ensure they align with your security requirements.
 
-4. If the policies and roles do not exist, the script will create them for you. If the policies already exist, it will skip the creation step.
-
-5. If the roles do not exist, the script will create them and attach the corresponding policies.
-
-6. After successfully creating or reusing the policies and roles, the script will display a "Done" message, indicating that the provisioning process is complete.
-
-Please make sure to carefully review any prompts during script execution, as the script will not proceed until you confirm your choices.
-
-**Note:** The script assumes that the AWS CLI is set up to interact with the AWS Management Account, where IAM policies and roles are created. Ensure that you have the necessary permissions to create and manage IAM resources in the AWS Management Account.
-
-**Caution:** This script has the potential to create or modify AWS IAM resources. Please use it with caution and ensure you understand the implications of the changes it makes to your AWS environment. Always test in a controlled environment before using it in production.
-
-For any questions or issues related to the script, please contact the script's maintainer or seek assistance from AWS support.
+2. Always exercise caution when running workflows that interact with your AWS resources. Make sure to review and understand the actions performed by the workflow
 

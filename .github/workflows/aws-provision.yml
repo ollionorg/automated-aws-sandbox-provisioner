@@ -53,9 +53,9 @@ env:
   ADMINISTRATOR_ARN: "arn:aws:sso:::permissionSet/ssoins-72230e0790e87c67/ps-0662f849c7f7a7eb"
   IDENTITY_STORE_ID: "d-90676437e3"
   ADMIN_EMAIL: "sandbox-admins"
-  MANAGEMENT_ACCOUNT_ID: "559677651209"
-  MANAGEMENT_ROLE_NAME: "account-management-switch-role"
-  AWS_REGION: "us-east-1"
+  MANAGEMENT_ACCOUNT_ID: "REPLACE_AWS_MANAGEMENT_ACCOUNT"
+  MANAGEMENT_ROLE_NAME: "REPLACE_MANAGEMENT_ROLE_HERE"
+  AWS_REGION: "REPLACE_AWS_DEFAULT_REGION"
   HELPDESK_URL: 'https://cloudcover-helpdesk.freshdesk.com'
   CREDENTIALS_FILE: ${{ secrets.credentials }}
   SANDBOX_SLACK_WEBHOOK: ${{ secrets.webhook }}
