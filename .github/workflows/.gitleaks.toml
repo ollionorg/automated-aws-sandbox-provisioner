@@ -87,18 +87,6 @@ regex = '''[0-9a-z]{35,44}'''
 tags = ["key", "Twitter"]
 
 [[rules]]
-description = "LinkedIn Client ID"
-id = "linkedin-client-id"
-regex = '''[0-9a-z]{12}'''
-tags = ["key", "LinkedIn"]
-
-[[rules]]
-description = "LinkedIn Secret Key"
-id = "linkedin-secret-key"
-regex = '''[0-9a-z]{16}'''
-tags = ["key", "LinkedIn"]
-
-[[rules]]
 description = "Slack"
 id = "slack-token"
 regex = '''xox[baprs]-([0-9a-zA-Z]{10,48})?'''
