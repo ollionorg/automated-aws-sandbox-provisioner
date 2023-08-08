@@ -170,6 +170,7 @@ main() {
     export SECRET_NAME="sandbox/git"
     export SECRET_KEY_NAME="git_token"
     export AWS_DEFAULT_REGION="us-east-1"
+    export SSO_ENABLED=true
 
     REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
     REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
@@ -200,11 +201,52 @@ main() {
     # Check AWS CLI configuration with valid credentials
     check_aws_cli_configuration
 
+    # Check if SSO is enabled
+    if [ "$SSO_ENABLED" = "true" ]; then
+      # Run the AWS CLI command and store the output in SSO_INSTANCE_INFO variable
+      SSO_INSTANCE_INFO=$(aws sso-admin list-instances | jq -r '.Instances[0]')
+
+      # Check if the SSO_INSTANCE_INFO variable is not empty
+      if [ -n "$SSO_INSTANCE_INFO" ]; then
+        # Extract the instance ARN and Identity Store ID from the JSON
+        SSO_INSTANCE_ARN=$(echo "$SSO_INSTANCE_INFO" | jq -r '.InstanceArn')
+        SSO_IDENTITY_STORE_ID=$(echo "$SSO_INSTANCE_INFO" | jq -r '.IdentityStoreId')
+
+        # Display the instance ARN and Identity Store ID
+        echo "SSO instance ARN: $SSO_INSTANCE_ARN"
+        echo "Identity Store ID: $SSO_IDENTITY_STORE_ID"
+
+        # Check if there are multiple instances and print them on the screen
+        NUM_INSTANCES=$(aws sso-admin list-instances | jq '.Instances | length')
+        if [ "$NUM_INSTANCES" -gt 1 ]; then
+          echo "Other instance ARNs and Identity Store IDs available:"
+          aws sso-admin list-instances | jq -r '.Instances[] | "Instance ARN: \(.InstanceArn)\nIdentity Store ID: \(.IdentityStoreId)\n"'
+        fi
+
+        # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
+        # Assuming aws-provision.yml contains placeholder texts `INSTANCE_ARN_PLACEHOLDER` and `IDENTITY_STORE_ID_PLACEHOLDER`
+        if [ -f "aws-provision.yml" ]; then
+          sed -i "s|INSTANCE_ARN_PLACEHOLDER|$SSO_INSTANCE_ARN|" ../../github/workflows/aws-provision.yml
+          sed -i "s|IDENTITY_STORE_ID_PLACEHOLDER|$SSO_IDENTITY_STORE_ID|" ../../github/workflows/aws-provision.yml
+          echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
+        else
+          echo "Warning: aws-provision.yml not found. Please make sure to update the file manually."
+        fi
+      else
+        echo -e "${RED}No SSO instance found. Make sure you are in correct account or disable the flag ${GREEN}'SSO_ENABLED'${NC}"
+      fi
+    else
+      echo "SSO is not enabled. Skipping SSO-related commands."
+    fi
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
+
     echo -e "${YELLOW}Completed substituting.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy
     echo -e "\nValidating the policy files."
