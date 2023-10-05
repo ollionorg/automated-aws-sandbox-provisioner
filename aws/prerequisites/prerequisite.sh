@@ -15,16 +15,24 @@ export SECRET_KEY_NAME="git_token"
 
 export AWS_DEFAULT_REGION="us-east-1"
 export SSO_ENABLED="true"
-export AWS_ADMINS_EMAIL="" # e.g aws-admins@yourdomain.com
+export PERMISSION_SET_NAME="SandboxAdministratorAccess" # Define the name for the permission set
+export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
+export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com" # e.g aws-admins@yourdomain.com
 export REQUIRED_APPROVAl="true" # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
 export APPROVAL_DURATION=8
 
 # Define color codes
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+export GREEN='\033[0;32m'
+export RED='\033[0;31m'
+export YELLOW='\033[1;33m'
+export NC='\033[0m' # No Color
 
+sleep 1
+
+if [[ -z $AWS_ADMINS_EMAIL ]]; then
+  echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
+  exit 1
+fi
 
 EMAIL_PRINCIPAL="${email%%@*}"  # Gets everything before the last "@"
 domain="${email#*@}"
@@ -185,20 +193,25 @@ create_aws_secret() {
 
 
 main() {
-    # Rename if required
 
     REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
     REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
 
     print_message "Below resources will be created" "$GREEN"
-    echo -e "1. Two IAM policies\n2. Two IAM roles\n3. policies will be attached to the respective roles.\n"
+    sleep 1
+    echo -e "
+1. IAM policies ${YELLOW}[ $policy_name, $lambda_policy_name ]${NC}
+2. IAM roles ${YELLOW}[ $role_name, $lambda_role_name ]${NC}
+3. Secret containing GitHub token which will be used for triggering workflow to revoke access of sandbox.
+policies will be attached to the respective roles.\n"
+    sleep 1
 
     echo -e "Using region : ${RED}$AWS_DEFAULT_REGION${NC} to deploy the resources."
     echo -e "GitHub Repo Owner : ${YELLOW}$REPO_OWNER${NC}"
     echo -e "GitHub Repo Name : ${YELLOW}$REPO_NAME${NC}"
     sleep 1
 
-    echo -e "$YELLOW"
+    echo -e "$GREEN"
     read -rp "Make sure you are authenticated to the management account and the default region above is as expected. Do you want to continue? (y/n): " continue
     echo -e "$NC"
     if [[ "$continue" =~ ^[Yy]$ ]]; then
@@ -216,9 +229,10 @@ main() {
     # Check AWS CLI configuration with valid credentials
     check_aws_cli_configuration
 
+
     # Validate master account
     if ! [[ $(aws organizations describe-organization --query "Organization.MasterAccountId" --output text) -eq $(aws sts get-caller-identity --query "Account" --output text) ]];then
-      echo -e "${RED}This is not a master account. Exiting...${NC}"
+      echo -e "${RED}This is not a master account under a organization. Please authenticate to a master account in order to setup the prerequisites. Exiting...${NC}"
       exit 1
     fi
 
@@ -234,43 +248,60 @@ main() {
         SSO_INSTANCE_ARN=$(echo "$SSO_INSTANCE_INFO" | jq -r '.InstanceArn')
         SSO_IDENTITY_STORE_ID=$(echo "$SSO_INSTANCE_INFO" | jq -r '.IdentityStoreId')
 
+        # Check if there are multiple instances and print them on the screen
+        NUM_INSTANCES=$(aws sso-admin list-instances | jq '.Instances | length')
+        if [ "$NUM_INSTANCES" -gt 1 ]; then
+          echo "More than one instance ARNs and Identity Store IDs available:"
+          aws sso-admin list-instances | jq -r '.Instances[] | "Instance ARN: \(.InstanceArn)\nIdentity Store ID: \(.IdentityStoreId)\n"'
+        fi
+
         # Display the instance ARN and Identity Store ID
         echo -e "\nSSO instance ARN: ${RED}$SSO_INSTANCE_ARN ${NC}"
         echo -e "Identity Store ID: ${RED}$SSO_IDENTITY_STORE_ID ${YELLOW}"
         read -rp "Confirm the above SSO Instance Details. Do you want to continue? (y/n): " continue
         echo -e "${NC}"
         if [[ "$continue" =~ ^[Yy]$ ]]; then
-            true
+            echo -e "Creating permission set named ${YELLOW}$PERMISSION_SET_NAME${NC} for sandbox users with policy ${YELLOW}$MANAGED_POLICY_ARN_FOR_SANDBOX_USERS${NC} which will be used while provisioning sandbox account"
+            SANDBOX_USER_PERMISSION_SER_ARN=$(aws sso-admin create-permission-set \
+              --instance-arn $SSO_INSTANCE_ARN \
+              --name "$PERMISSION_SET_NAME" \
+              --description "Permission set with AdministratorAccess policy for Sandbox users" \
+              --session-duration "PT1H30M" --query 'PermissionSet.PermissionSetArn' --output text
+              )
+
+            sleep 1
+
+            aws sso-admin attach-managed-policy-to-permission-set \
+              --instance-arn $SSO_INSTANCE_ARN \
+              --permission-set-arn "$SANDBOX_USER_PERMISSION_SER_ARN" \
+              --managed-policy-arn "$MANAGED_POLICY_ARN_FOR_SANDBOX_USERS"
+
+            sleep 1
+
+            echo -e "Sandbox user Permission set ARN : ${YELLOW}$SANDBOX_USER_PERMISSION_SER_ARN${NC}"
+
         else
             print_message "Exiting..." "$RED"
             exit 0
         fi
-        # Check if there are multiple instances and print them on the screen
-        NUM_INSTANCES=$(aws sso-admin list-instances | jq '.Instances | length')
-        if [ "$NUM_INSTANCES" -gt 1 ]; then
-          echo "Other instance ARNs and Identity Store IDs available:"
-          aws sso-admin list-instances | jq -r '.Instances[] | "Instance ARN: \(.InstanceArn)\nIdentity Store ID: \(.IdentityStoreId)\n"'
-        fi
-
-        exit 0
 
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
-        # Assuming aws-provision.yml contains placeholder texts `INSTANCE_ARN_PLACEHOLDER` and `IDENTITY_STORE_ID_PLACEHOLDER`
-        if [ -f "aws-provision.yml" ]; then
-          sed -i "s|REPLACE_SSO_ENABLED_FLAG_HERE|$SSO_ENABLED|" ../../github/workflows/aws-provision.yml
-          sed -i "s|INSTANCE_ARN_PLACEHOLDER|$SSO_INSTANCE_ARN|" ../../github/workflows/aws-provision.yml
-          sed -i "s|IDENTITY_STORE_ID_PLACEHOLDER|$SSO_IDENTITY_STORE_ID|" ../../github/workflows/aws-provision.yml
+        if [ -f "../../.github/workflows/aws-provision.yml" ]; then
+          find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SER_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
           echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
         else
-          echo "Warning: aws-provision.yml not found. Please make sure to update the file manually."
+          echo "Warning: aws-provision.yml not found. Please make sure the file is present or clone the repo properly."
         fi
       else
-        echo -e "${RED}No SSO instance found. Make sure you are in correct account or disable the flag ${GREEN}'SSO_ENABLED'${NC}"
+        echo -e "${RED}No SSO instance found. Make sure you are in correct account or disable the flag ${GREEN}'SSO_ENABLED'${NC} or create and Identity store in the management account"
       fi
     else
-      echo "SSO is not enabled. Skipping SSO-related commands."
-      sed -i "s|REPLACE_SSO_ENABLED_FLAG_HERE|false|" ../../github/workflows/aws-provision.yml
+      echo -e "${YELLOW}SSO is not enabled. Skipping SSO-related commands${NC}"
+      # sed -i "s|REPLACE_SSO_ENABLED_FLAG_HERE|$SSO_ENABLED|" ../../.github/workflows/aws-provision.yml
+      find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
+
+    exit 0
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;

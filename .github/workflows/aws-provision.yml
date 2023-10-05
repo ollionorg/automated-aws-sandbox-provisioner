@@ -51,7 +51,7 @@ env:
   APPROVAL_HOURS: 8                                            # Approval required if the requested Hours is greater than APPROVAL_HOURS value
   SSO_ENABLED: "REPLACE_SSO_ENABLED_FLAG_HERE"
   SSO_INSTANCE_ARN: "INSTANCE_ARN_PLACEHOLDER"                 #"arn:aws:sso:::instance/ssoins-72230e0790e87c67"
-  ADMINISTRATOR_ARN: "arn:aws:sso:::permissionSet/ssoins-72230e0790e87c67/ps-0662f849c7f7a7eb"
+  ADMINISTRATOR_ARN: "REPLACE_SANDBOX_USER_PERMISSION_SER_ARN_HERE"
   IDENTITY_STORE_ID: "IDENTITY_STORE_ID_PLACEHOLDER"           #"d-90676437e3"
   ADMIN_EMAIL: "REPLACE_AWS_ADMIN_EMAIL"                       # generic aws admins email id, will be used while creating accounts in case of account creation
   MANAGEMENT_ACCOUNT_ID: "REPLACE_AWS_MANAGEMENT_ACCOUNT"
