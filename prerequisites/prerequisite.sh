@@ -2,34 +2,12 @@
 
 set -e
 
-
-
-export policy_name="SandboxProvisionerPolicy"
-export policy_file="sandbox_provisioner_policy.json"
-export role_name="SandboxAccountManagementRole"
-export lambda_policy_name="SandboxLambdaPolicy"
-export lambda_policy_file="sandbox_lambda_policy.json"
-export lambda_role_name="SandboxLambdaRole"
-export SECRET_NAME="sandbox/git"
-export SECRET_KEY_NAME="git_token"
-
-export AWS_DEFAULT_REGION="us-east-1"
-export SSO_ENABLED="true"
-export AWS_ADMINS_EMAIL="" # e.g aws-admins@yourdomain.com
-export REQUIRED_APPROVAl="true" # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
-export APPROVAL_DURATION=8
-
+CLEANUP="$1" # If cleanup is passed as argument, it will cleanup the resources created by the script
 # Define color codes
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-
-
-EMAIL_PRINCIPAL="${email%%@*}"  # Gets everything before the last "@"
-domain="${email#*@}"
-
-
 
 # Function to print colored messages
 print_message() {
@@ -184,14 +162,76 @@ create_aws_secret() {
 }
 
 
+
+# Function to perform cleanup
+cleanup() {
+    # Delete the lambda role if it exists
+    if aws iam get-role --role-name "$lambda_role_name" &>/dev/null; then
+        aws iam detach-role-policy --role-name "$lambda_role_name" --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$lambda_policy_name"
+        aws iam delete-role --role-name "$lambda_role_name"
+    fi
+
+    # Delete the lambda policy if it exists
+    if aws iam get-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$lambda_policy_name" &>/dev/null; then
+        aws iam delete-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$lambda_policy_name"
+    fi
+
+    # Delete the IAM role if it exists
+    if aws iam get-role --role-name "$role_name" &>/dev/null; then
+        aws iam detach-role-policy --role-name "$role_name" --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name"
+        aws iam delete-role --role-name "$role_name"
+    fi
+
+    # Delete the IAM policy if it exists
+    if aws iam get-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name" &>/dev/null; then
+        aws iam delete-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name"
+    fi
+
+    # Delete the secret from AWS Secrets Manager if it exists
+    if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" &>/dev/null; then
+        aws secretsmanager delete-secret --secret-id "$SECRET_NAME"
+    fi
+
+    print_message "Cleanup completed" "$GREEN"
+}
+
+
 main() {
-    # Rename if required
+    # All_Variables_Here
+    export policy_name="SandboxProvisionerPolicy"
+    export policy_file="sandbox_provisioner_policy.json"
+    export role_name="SandboxAccountManagementRole"
+    export lambda_policy_name="SandboxLambdaPolicy"
+    export lambda_policy_file="sandbox_lambda_policy.json"
+    export lambda_role_name="SandboxLambdaRole"
+    export SECRET_NAME="sandbox/git"
+    export SECRET_KEY_NAME="git_token"
+    export AWS_DEFAULT_REGION="us-east-1"
+    export SSO_ENABLED=true
+
+    # Check if the AWS CLI is installed
+    check_aws_cli
 
     REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
     REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
 
-    print_message "Below resources will be created" "$GREEN"
-    echo -e "1. Two IAM policies\n2. Two IAM roles\n3. policies will be attached to the respective roles.\n"
+
+    # Check if the script was called with the "cleanup" argument
+    if [[ "$CLEANUP" == "cleanup" ]]; then
+        check_aws_cli_configuration
+        echo -e "${RED}WARNING: This will delete all resources created by the script. This action is irreversible.${NC}"
+        read -rp "Are you sure you want to proceed with cleanup? (y/n): " confirm_cleanup
+        if [[ "$confirm_cleanup" =~ ^[Yy]$ ]]; then
+            cleanup
+            exit 0
+        else
+            print_message "Cleanup canceled." "$YELLOW"
+            exit 0
+        fi
+    fi
+
+    print_message "Running the prerequisite script to provision resources required for AWS Sandbox provisioner" "$GREEN"
+    echo -e "Refer the README.md file in the current dir to know about the resources that will be created [Quick Start point no.5]\n"
 
     echo -e "Using region : ${RED}$AWS_DEFAULT_REGION${NC} to deploy the resources."
     echo -e "GitHub Repo Owner : ${YELLOW}$REPO_OWNER${NC}"
@@ -210,9 +250,6 @@ main() {
 
     print_message "Checking prerequisites..." "$GREEN"
 
-    # Check if the AWS CLI is installed
-    check_aws_cli
-
     # Check AWS CLI configuration with valid credentials
     check_aws_cli_configuration
 
@@ -225,7 +262,6 @@ main() {
     # Check if SSO is enabled
     if [ "$SSO_ENABLED" = "true" ]; then
       # Run the AWS CLI command and store the output in SSO_INSTANCE_INFO variable
-
       SSO_INSTANCE_INFO=$(aws sso-admin list-instances | jq -r '.Instances[0]')
 
       # Check if the SSO_INSTANCE_INFO variable is not empty
@@ -257,7 +293,6 @@ main() {
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
         # Assuming aws-provision.yml contains placeholder texts `INSTANCE_ARN_PLACEHOLDER` and `IDENTITY_STORE_ID_PLACEHOLDER`
         if [ -f "aws-provision.yml" ]; then
-          sed -i "s|REPLACE_SSO_ENABLED_FLAG_HERE|$SSO_ENABLED|" ../../github/workflows/aws-provision.yml
           sed -i "s|INSTANCE_ARN_PLACEHOLDER|$SSO_INSTANCE_ARN|" ../../github/workflows/aws-provision.yml
           sed -i "s|IDENTITY_STORE_ID_PLACEHOLDER|$SSO_IDENTITY_STORE_ID|" ../../github/workflows/aws-provision.yml
           echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
@@ -269,7 +304,6 @@ main() {
       fi
     else
       echo "SSO is not enabled. Skipping SSO-related commands."
-      sed -i "s|REPLACE_SSO_ENABLED_FLAG_HERE|false|" ../../github/workflows/aws-provision.yml
     fi
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
@@ -277,7 +311,7 @@ main() {
 
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
 
     echo -e "${YELLOW}Completed substituting.${NC}"

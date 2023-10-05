@@ -47,12 +47,13 @@ on:
         description: Enter additional user emails, e.g email1,email2,email3 (Optional)
 
 env:
-  REQUIRE_APPROVAL: true # Create issue for approval in GitHub Actions
-  APPROVAL_HOURS: 8 # Approval required if the requested Hours is greater than APPROVAL_HOURS value
-  SSO_INSTANCE_ARN: "arn:aws:sso:::instance/ssoins-72230e0790e87c67"
+  REQUIRE_APPROVAL: true                                       # Create issue for approval in GitHub Actions
+  APPROVAL_HOURS: 8                                            # Approval required if the requested Hours is greater than APPROVAL_HOURS value
+  SSO_ENABLED: "REPLACE_SSO_ENABLED_FLAG_HERE"
+  SSO_INSTANCE_ARN: "INSTANCE_ARN_PLACEHOLDER"                 #"arn:aws:sso:::instance/ssoins-72230e0790e87c67"
   ADMINISTRATOR_ARN: "arn:aws:sso:::permissionSet/ssoins-72230e0790e87c67/ps-0662f849c7f7a7eb"
-  IDENTITY_STORE_ID: "d-90676437e3"
-  ADMIN_EMAIL: "sandbox-admins"
+  IDENTITY_STORE_ID: "IDENTITY_STORE_ID_PLACEHOLDER"           #"d-90676437e3"
+  ADMIN_EMAIL: "REPLACE_AWS_ADMIN_EMAIL"                       # generic aws admins email id, will be used while creating accounts in case of account creation
   MANAGEMENT_ACCOUNT_ID: "REPLACE_AWS_MANAGEMENT_ACCOUNT"
   MANAGEMENT_ROLE_NAME: "REPLACE_MANAGEMENT_ROLE_HERE"
   AWS_REGION: "REPLACE_AWS_DEFAULT_REGION"
@@ -81,6 +82,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: "Create SKIP flag and install aws cli"
+        if: ${{ env.REQUIRE_APPROVAL }}
         id: "create_flag"
         run: |
           if [ $(echo ${{ inputs.DURATION }} | awk -F' ' '{ print $1 }') -le 8 ]; then
