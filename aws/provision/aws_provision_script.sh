@@ -150,20 +150,36 @@ sso(){
   echo -e "\n=========================================================================="
 }
 
-#SSO for requestor
-sso ${USER_EMAIL}
+if [[ $SSO_ENABLED = "true" ]]; then
+    #SSO for requestor
+    sso ${USER_EMAIL}
 
-#SSO for additional users
-if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
-  echo "No additional users specified to add to this account."
+    #SSO for additional users
+    if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
+      echo "No additional users specified to add to this account."
+    else
+      ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
+
+      IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
+      for email in "${USERS[@]}"; do
+        sso "$email"
+      done
+    fi
 else
-  ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
+    bash create_iam_user.sh ${USER_EMAIL}
+    #IAM user for additional emails
+    if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
+      echo "No additional users specified to add to this account."
+    else
+      ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
 
-  IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
-  for email in "${USERS[@]}"; do
-    sso "$email"
-  done
+      IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
+      for email in "${USERS[@]}"; do
+        bash create_iam_user.sh "$email"
+      done
+    fi
 fi
+
 
 ##################################################################
 

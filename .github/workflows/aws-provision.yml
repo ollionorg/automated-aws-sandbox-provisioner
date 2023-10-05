@@ -269,6 +269,7 @@ jobs:
           echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
 
       - name: "Provision AWS Sandbox account"
+        working-directory: aws/provision/
         env:
           USER_EMAIL: ${{ needs.setup-job.outputs.ACTOR_EMAIL }}
           ADDITIONAL_USER_EMAILS: ${{ inputs.ADDITIONAL_USER_EMAILS }}
@@ -278,7 +279,7 @@ jobs:
           TICKET_ID: ${{ needs.ticket-creation-and-approval.outputs.TICKET }}
           TEAM: ${{ inputs.TEAM }}
         run: |
-          bash aws/provision/aws_provision_script.sh
+          bash aws_provision_script.sh
 
       - name: "Add account provisioned comment"
         if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
