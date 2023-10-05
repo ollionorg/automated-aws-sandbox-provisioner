@@ -2,6 +2,20 @@
 
 set -e
 
+
+# All_Variables_Here
+export policy_name="SandboxProvisionerPolicy"
+export policy_file="sandbox_provisioner_policy.json"
+export role_name="SandboxAccountManagementRole"
+export lambda_policy_name="SandboxLambdaPolicy"
+export lambda_policy_file="sandbox_lambda_policy.json"
+export lambda_role_name="SandboxLambdaRole"
+export SECRET_NAME="sandbox/git"
+export SECRET_KEY_NAME="git_token"
+export AWS_DEFAULT_REGION="us-east-1"
+export SSO_ENABLED=true
+
+
 CLEANUP="$1" # If cleanup is passed as argument, it will cleanup the resources created by the script
 # Define color codes
 GREEN='\033[0;32m'
@@ -197,17 +211,7 @@ cleanup() {
 
 
 main() {
-    # All_Variables_Here
-    export policy_name="SandboxProvisionerPolicy"
-    export policy_file="sandbox_provisioner_policy.json"
-    export role_name="SandboxAccountManagementRole"
-    export lambda_policy_name="SandboxLambdaPolicy"
-    export lambda_policy_file="sandbox_lambda_policy.json"
-    export lambda_role_name="SandboxLambdaRole"
-    export SECRET_NAME="sandbox/git"
-    export SECRET_KEY_NAME="git_token"
-    export AWS_DEFAULT_REGION="us-east-1"
-    export SSO_ENABLED=true
+
 
     # Check if the AWS CLI is installed
     check_aws_cli
@@ -293,6 +297,7 @@ main() {
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
         # Assuming aws-provision.yml contains placeholder texts `INSTANCE_ARN_PLACEHOLDER` and `IDENTITY_STORE_ID_PLACEHOLDER`
         if [ -f "aws-provision.yml" ]; then
+          sed -i "s|INSTANCE_ARN_PLACEHOLDER|$SSO_INSTANCE_ARN|" ../../github/workflows/aws-provision.yml
           sed -i "s|INSTANCE_ARN_PLACEHOLDER|$SSO_INSTANCE_ARN|" ../../github/workflows/aws-provision.yml
           sed -i "s|IDENTITY_STORE_ID_PLACEHOLDER|$SSO_IDENTITY_STORE_ID|" ../../github/workflows/aws-provision.yml
           echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
