@@ -17,6 +17,14 @@ For each team (e.g., `DEV_TEAM`), two OUs need to be created under the organizat
 To illustrate, here's an example of how you can define teams and their corresponding OUs in the `prerequisites.sh` script:
 
 ```bash
+
+# For example you have create dev-team OUs like below,
+# team is dev-team
+# OU1      > dev-team-sandbox-ou is "ou-6pbt-49d0vb50"
+# OU1-pool > dev-team-sandbox-pool-ou is "ou-6pbt-xh364wnr"
+
+# Now you can define the array for dev-team as below
+
 # Define the team names
 TEAM_NAMES=("dev-team" "qa-team" "devops-team")
 
