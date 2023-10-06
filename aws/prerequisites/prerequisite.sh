@@ -21,9 +21,9 @@ export REQUIRES_MANAGER_APPROVAl="true"                                         
 export APPROVAL_DURATION=8
 
 # Define the team names and OU ids - refer OU prerequisites at aws/prerequisites/OU_PREREQUISITES.md
-export TEAM_NAMES=("")         # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
-export TEAM_SANDBOX_OUs=("")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
-export TEAM_POOL_OUs=("")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
+export TEAM_NAMES=("dev-team" "qa-team" "devops-team")          # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
+export TEAM_SANDBOX_OUs=("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
+export TEAM_POOL_OUs=("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
 
 
 # Define color codes
@@ -329,12 +329,8 @@ policies will be attached to the respective roles.\n"
       find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
-    exit 0
     # Initialize the TEAM_OU_MAPPING_OUTPUT variable
     TEAM_OU_MAPPING_OUTPUT=""
-    # Append to the TEAM_OU_MAPPING_OUTPUT variable
-    TEAM_OU_MAPPING_OUTPUT+="case \${{ inputs.TEAM }} in"$'\n'
-
     # Generate the case statements dynamically based on the arrays
     for ((i = 0; i < ${#TEAM_NAMES[@]}; i++)); do
         team_name="${TEAM_NAMES[i]}"
@@ -363,6 +359,10 @@ policies will be attached to the respective roles.\n"
     # Set the WORKFLOW_TEAM_INPUT_OPTIONS variable
     echo "WORKFLOW_TEAM_INPUT_OPTIONS:"
     echo "$WORKFLOW_TEAM_INPUT_OPTIONS"
+
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_TEAM_OU_MAPPING_OUTPUT=${TEAM_OU_MAPPING_OUTPUT} -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$WORKFLOW_TEAM_INPUT_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
+    exit 0
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;

@@ -91,6 +91,7 @@ jobs:
       - name: "Select Pool OU and Sandbox OU according to team"
         id: "ou_select"
         run: |
+          case ${{ inputs.TEAM }} in
           REPLACE_TEAM_OU_MAPPING_OUTPUT
 
       - name: "Workflow Status Slack Notification"
