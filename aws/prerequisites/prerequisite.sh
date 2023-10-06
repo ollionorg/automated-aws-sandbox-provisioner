@@ -3,7 +3,6 @@
 set -e
 
 
-
 export policy_name="SandboxProvisionerPolicy"
 export policy_file="sandbox_provisioner_policy.json"
 export role_name="SandboxAccountManagementRole"
@@ -15,11 +14,17 @@ export SECRET_KEY_NAME="git_token"
 
 export AWS_DEFAULT_REGION="us-east-1"
 export SSO_ENABLED="true"
-export PERMISSION_SET_NAME="SandboxAdministratorAccess" # Define the name for the permission set
+export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
 export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
-export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com" # e.g aws-admins@yourdomain.com
-export REQUIRES_MANAGER_APPROVAl="true" # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
+export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                                       # e.g aws-admins@yourdomain.com
+export REQUIRES_MANAGER_APPROVAl="true"                                                   # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
 export APPROVAL_DURATION=8
+
+# Define the team names and OU ids - refer OU prerequisites at aws/prerequisites/OU_PREREQUISITES.md
+export TEAM_NAMES=("")         # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
+export TEAM_SANDBOX_OUs=("")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
+export TEAM_POOL_OUs=("")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
+
 
 # Define color codes
 export GREEN='\033[0;32m'
@@ -33,6 +38,30 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
   exit 1
 fi
+
+# Check if at least one team is defined
+if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
+    echo -e "${RED}\nError: At least one team must be defined.${NC}"
+        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
+
+    exit 1
+fi
+
+# Check if any team name is blank
+for team_name in "${TEAM_NAMES[@]}"; do
+    if [ -z "$team_name" ]; then
+        echo -e "${RED}\nError: Team name cannot be blank.${NC}"
+        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
+        exit 1
+    fi
+done
+
+# Check if the number of teams matches the number of OU IDs
+if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
+    echo "Error: The number of teams does not match the number of OU IDs."
+    exit 1
+fi
+
 
 ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
 EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"

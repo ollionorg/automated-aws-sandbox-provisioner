@@ -95,21 +95,17 @@ jobs:
         id: "ou_select"
         run: |
           case ${{ inputs.TEAM }} in
-          TEAM_ABBREVIATION_1)
+          dev-team)
           	echo "SANDBOX_OU_ID=ou-6pbt-49d0vb50" >> $GITHUB_OUTPUT
             echo "POOL_OU_ID=ou-6pbt-xh364wnr" >> $GITHUB_OUTPUT
           	;;
-          TEAM_ABBREVIATION_2)
+          qa-team)
           	echo "SANDBOX_OU_ID=ou-6pbt-8yp0lf3e" >> $GITHUB_OUTPUT
             echo "POOL_OU_ID=ou-6pbt-4dguhonx" >> $GITHUB_OUTPUT
           	;;
-          TEAM_ABBREVIATION_3)
+          devops-team)
           	echo "SANDBOX_OU_ID=ou-6pbt-lkqhzc8a" >> $GITHUB_OUTPUT
             echo "POOL_OU_ID=ou-6pbt-pnwre24b" >> $GITHUB_OUTPUT
-          	;;
-          TEAM_ABBREVIATION_4)
-          	echo "SANDBOX_OU_ID=ou-6pbt-4aqqmxx3" >> $GITHUB_OUTPUT
-            echo "POOL_OU_ID=ou-6pbt-4shc63j4" >> $GITHUB_OUTPUT
           	;;
           esac
 

@@ -38,9 +38,11 @@ function create_account() {
     #Create account
     echo -e "\n\nCreating AWS sandbox account for ${USER_EMAIL} and the access will be revoked in ${DURATION} hours\n"
 
+    export EMAIL_DOMAIN="${ADMIN_EMAIL#*@}"
+
     CREATE_REQUEST_ID=$(
       aws organizations create-account \
-        --email "${ADMIN_EMAIL}+${ACCOUNT_NAME}@cldcvr.com" \
+        --email "${ADMIN_EMAIL}+${ACCOUNT_NAME}@${EMAIL_DOMAIN}" \
         --account-name "${ACCOUNT_NAME}" \
         --region ${AWS_REGION} \
         --iam-user-access-to-billing ALLOW \
