@@ -90,8 +90,6 @@ exit 0
 ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
 EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
 
-
-
 # Function to print colored messages
 print_message() {
     local message="$1"

@@ -8,6 +8,8 @@ export SELF_HOSTED_RUNNER_SG_NAME="SelfHostedRunnerSecurityGroup"
 export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
 export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
 export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
+export SSH_USER="ec2-user"
+
 
 # Define the trust policy JSON
 TRUST_POLICY_JSON='{
@@ -37,6 +39,8 @@ INSTANCE_AMI_ID=$(aws ec2 describe-images --region $AWS_DEFAULT_REGION --filters
 
 if [[ -z $INSTANCE_AMI_ID ]]; then
     echo "Could not fetch AMI for the instance in $AWS_DEFAULT_REGION. Please specify manually above. "
+else
+    echo "Using AMI $INSTANCE_AMI_ID to deploy the runner instance"
 fi
 
 # Create the VPC
@@ -59,6 +63,29 @@ else
     echo "Subnet created with ID: $SUBNET_ID"
 fi
 
+# Create an internet gateway and attach it to the VPC
+IGW_ID=$(aws ec2 create-internet-gateway --region "$AWS_DEFAULT_REGION" | jq -r '.InternetGateway.InternetGatewayId')
+if [ -z "$IGW_ID" ]; then
+    echo "Error: Failed to create internet gateway."
+    exit 1
+else
+    echo "Internet Gateway created with ID: $IGW_ID"
+fi
+aws ec2 attach-internet-gateway --vpc-id "$VPC_ID" --internet-gateway-id "$IGW_ID" --region "$AWS_DEFAULT_REGION"
+
+# Create a route table for the subnet
+ROUTE_TABLE_ID=$(aws ec2 create-route-table --vpc-id "$VPC_ID" --region "$AWS_DEFAULT_REGION" | jq -r '.RouteTable.RouteTableId')
+if [ -z "$ROUTE_TABLE_ID" ]; then
+    echo "Error: Failed to create route table."
+    exit 1
+else
+    echo "Route Table created with ID: $ROUTE_TABLE_ID"
+fi
+
+aws ec2 associate-route-table --route-table-id "$ROUTE_TABLE_ID" --subnet-id "$SUBNET_ID"
+
+# Add a route to the route table to route traffic to 0.0.0.0/0 through the internet gateway
+aws ec2 create-route --route-table-id "$ROUTE_TABLE_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" --region "$AWS_DEFAULT_REGION" --output json
 
 # Create a security group for the self-hosted runner
 RUNNER_SG_ID=$(aws ec2 create-security-group --group-name "$SELF_HOSTED_RUNNER_SG_NAME" \
@@ -73,30 +100,6 @@ else
     echo "Security group created with ID: $RUNNER_SG_ID"
 fi
 
-RULE_OUTPUT=$(aws ec2 authorize-security-group-ingress \
-  --group-id "$RUNNER_SG_ID" \
-  --protocol tcp \
-  --port 443 \
-  --cidr "0.0.0.0/0" --query 'Return' --output text)
-
-if [[ $RULE_OUTPUT == "True" ]]; then
-    echo "Security group rule added"
-else
-    echo "1 - Security group rule failed to be created"
-fi
-
-RULE_OUTPUT=$(aws ec2 authorize-security-group-egress \
-  --group-id "$RUNNER_SG_ID" \
-  --protocol tcp \
-  --port 80 \
-  --cidr 0.0.0.0/0 --query 'Return' --output text)
-
-if [[ $RULE_OUTPUT == "True" ]]; then
-    echo "Security group rule added"
-else
-    echo "2 - Security group rule failed to be created"
-fi
-
 RULE_OUTPUT=$(aws ec2 authorize-security-group-egress \
   --group-id "$RUNNER_SG_ID" \
   --protocol tcp \
@@ -106,8 +109,9 @@ RULE_OUTPUT=$(aws ec2 authorize-security-group-egress \
 if [[ $RULE_OUTPUT == "True" ]]; then
     echo "Security group rule added"
 else
-    echo "3 - Security group rule failed to be created"
+    echo "Security group rule failed to be created"
 fi
+
 # Create GitHub Runner role
 GITHUB_RUNNER_ROLE_OUTPUT=$(aws iam create-role \
   --role-name "$GITHUB_RUNNER_ROLE_NAME" \
@@ -136,6 +140,20 @@ aws iam add-role-to-instance-profile \
 
 sleep 5
 
+KEY_NAME="my-ec2-key-pair-7"
+# Check if the key pair already exists
+existing_key=$(aws ec2 describe-key-pairs --region "$AWS_DEFAULT_REGION" --key-names "$KEY_NAME" --query "KeyPairs[0].KeyName" --output text)
+
+if [ -n "$existing_key" ]; then
+  echo "Key pair '$KEY_NAME' already exists."
+else
+  # Create the key pair
+  aws ec2 create-key-pair --key-name "$KEY_NAME" --query 'KeyMaterial' --output text > "$KEY_NAME.pem"
+  echo "Key pair '$KEY_NAME' created and saved to '$KEY_NAME.pem'."
+fi
+chmod 400 "$KEY_NAME.pem"
+
+echo "Spinning up EC2 runner instance"
 # Create EC2 Instance
 INSTANCE_ID=$(aws ec2 run-instances \
   --region $AWS_DEFAULT_REGION \
@@ -145,15 +163,51 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --security-group-ids "$RUNNER_SG_ID" \
   --iam-instance-profile "Arn=$INSTANCE_PROFILE_ARN" \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=SelfHostedGitHubRunner}]' \
-  --user-data file://runner_registration.txt
+  --associate-public-ip-address \
+  --key-name "$KEY_NAME" \
   --query 'Instances[0].InstanceId' \
   --output text)
 
-
+echo "Waiting for the instance to be in active state"
 aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $AWS_DEFAULT_REGION
 
 echo "EC2 runner created"
-echo "Proceeding with runner registration"
+
+COMMANDS=(
+  "sudo yum update -y"
+  "mkdir actions-runner && cd actions-runner"
+  "curl -o actions-runner-linux-x64-2.309.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.309.0/actions-runner-linux-x64-2.309.0.tar.gz"
+  "tar xzf ./actions-runner-linux-x64-2.309.0.tar.gz"
+  "sudo yum install libicu -y"
+  "./config.sh --url https://github.com/cldcvr/aws-sandbox-provisioner --token ALS42MB5B2TS3MWLLFT7YW3FEBFBQ --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended"
+  "./run.sh"
+)
+
+# Create the runner and start the configuration experience
+#./config.sh --url https://github.com/REPLACE_REPO_OWNER_HERE/REPLACE_REPO_NAME_HERE --token REPLACE_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended
+
+your_ip=$(curl -s https://ipinfo.io/ip)
+aws ec2 authorize-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" --output json
+echo "Inbound rule for SSH added to security group '$SECURITY_GROUP_NAME' for your IP address ($your_ip)."
+
+
+# SSH into the EC2 instance and run commands
+for cmd in "${COMMANDS[@]}"; do
+  ssh -i "$KEY_NAME.pem" "$SSH_USER"@"$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)" "$cmd"
+  if [ $? -ne 0 ]; then
+    echo "Failed to run command on the EC2 instance: $cmd"
+  else
+    echo "Command executed successfully: $cmd"
+  fi
+done
+
+#TODO Test this out
+ssh -i "$KEY_NAME.pem" "$SSH_USER"@"$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)" "nohup $cmd > /dev/null 2>&1 &"
+
+
+aws ec2 revoke-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" --query 'Return' --output text
+echo "SSH inbound rule deleted."
+
 #aws iam delete-instance-profile \
 #  --instance-profile-name GitHubRunnerInstanceProfile
 #
