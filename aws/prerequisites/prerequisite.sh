@@ -11,6 +11,7 @@ export lambda_policy_file="sandbox_lambda_policy.json"
 export lambda_role_name="SandboxLambdaRole"
 export SECRET_NAME="sandbox/git"
 export SECRET_KEY_NAME="git_token"
+export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner"
 
 export AWS_DEFAULT_REGION="us-east-1"
 export SSO_ENABLED="true"
@@ -62,6 +63,29 @@ if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#
     exit 1
 fi
 
+
+# Check the value of SELF_HOSTED_RUNNER_LABEL
+if [ "$SELF_HOSTED_RUNNER_LABEL" != "aws-sandbox-gh-runner" ]; then
+  echo -e "\n${RED}-----------IMPORTANT----------${NC}"
+  echo -e "As a runner label other than 'aws-sandbox-gh-runner' was provided, you intend to use existing runner instance/instances for this sandbox provisioner workflow."
+  echo -e "Make sure that the runner instance has the ability to ${YELLOW}assume the $role_name in the management account${NC} to perform the tasks. If not, add the necessary policies"
+  echo -e "\nIn case you want to make use of the runner created by this workflow, make sure to rename the variable ${YELLOW}SELF_HOSTED_RUNNER_LABEL${NC} to ${YELLOW}\"aws-sandbox-gh-runner\"${NC}"
+  echo -e "${RED}-------READ THOROUGHLY-------${NC}"
+
+  echo -e "$GREEN"
+  read -rp "Do you want to continue? (y/n): " continue
+  echo -e "$NC"
+  if [[ "$continue" =~ ^[Yy]$ ]]; then
+      true
+  else
+      echo -e "${RED}Exiting...${NC}"
+      exit 0
+  fi
+else
+    true
+fi
+
+exit 0
 
 ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
 EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
@@ -359,6 +383,9 @@ EOL
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
+    find . -type f -iname "*.txt" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$WORKFLOW_TEAM_INPUT_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
