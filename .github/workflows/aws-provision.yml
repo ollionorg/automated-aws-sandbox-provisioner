@@ -19,11 +19,8 @@ on:
         type: choice
         required: true
         options:
-          - 
-          - TEAM_ABBREVIATION_1 # Update with TEAM name, change the choices according to the number of teams
-          - TEAM_ABBREVIATION_2
-          - TEAM_ABBREVIATION_3
-          - TEAM_ABBREVIATION_4
+          -
+          REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS
 
       DURATION:
         description: "Duration of access in Hours "
@@ -94,20 +91,7 @@ jobs:
       - name: "Select Pool OU and Sandbox OU according to team"
         id: "ou_select"
         run: |
-          case ${{ inputs.TEAM }} in
-          dev-team)
-          	echo "SANDBOX_OU_ID=ou-6pbt-49d0vb50" >> $GITHUB_OUTPUT
-            echo "POOL_OU_ID=ou-6pbt-xh364wnr" >> $GITHUB_OUTPUT
-          	;;
-          qa-team)
-          	echo "SANDBOX_OU_ID=ou-6pbt-8yp0lf3e" >> $GITHUB_OUTPUT
-            echo "POOL_OU_ID=ou-6pbt-4dguhonx" >> $GITHUB_OUTPUT
-          	;;
-          devops-team)
-          	echo "SANDBOX_OU_ID=ou-6pbt-lkqhzc8a" >> $GITHUB_OUTPUT
-            echo "POOL_OU_ID=ou-6pbt-pnwre24b" >> $GITHUB_OUTPUT
-          	;;
-          esac
+          REPLACE_TEAM_OU_MAPPING_OUTPUT
 
       - name: "Workflow Status Slack Notification"
         if: failure()
