@@ -34,8 +34,8 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   exit 1
 fi
 
-EMAIL_PRINCIPAL="${email%%@*}"  # Gets everything before the last "@"
-domain="${email#*@}"
+ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
+EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
 
 
 

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ### This script is intended to create temporary time based AWS sandbox accounts.
 
 
