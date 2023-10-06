@@ -345,11 +345,17 @@ policies will be attached to the respective roles.\n"
                 ;;
 EOL
     done
-
     # Append the esac to close the case statement
     echo "esac" >> "$TEAM_OU_MAPPING_OUTPUT"
 
-    # find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    TEAM_OPTIONS="-"$'\n'
+    for team_name in "${TEAM_NAMES[@]}"; do
+        TEAM_OPTIONS+="          - $team_name"$'\n'
+    done
+
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"$TEAM_OPTIONS\" -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$WORKFLOW_TEAM_INPUT_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+
+
     exit 0
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"

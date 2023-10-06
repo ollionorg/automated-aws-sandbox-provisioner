@@ -19,7 +19,6 @@ on:
         type: choice
         required: true
         options:
-          -
           REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS
 
       DURATION:

@@ -25,29 +25,11 @@ if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#
     exit 1
 fi
 
-TEAM_OU_MAPPING_OUTPUT="../provision/team_ou_select.sh"
-
-# Generate the case statements dynamically based on the arrays
-for ((i = 0; i < ${#TEAM_NAMES[@]}; i++)); do
-    team_name="${TEAM_NAMES[i]}"
-    sandbox_ou_id="${TEAM_SANDBOX_OUs[i]}"
-    pool_ou_id="${TEAM_POOL_OUs[i]}"
-
-    cat <<EOL >> "$TEAM_OU_MAPPING_OUTPUT"
-        $team_name)
-            echo "SANDBOX_OU_ID=$sandbox_ou_id" >> \$GITHUB_OUTPUT
-            echo "POOL_OU_ID=$pool_ou_id" >> \$GITHUB_OUTPUT
-            ;;
-EOL
-done
-
-# Append the esac to close the case statement
-echo "esac" >> "$TEAM_OU_MAPPING_OUTPUT"
-
-
-# Output the generated script
-echo "Generated script:"
-cat "$TEAM_OU_MAPPING_OUTPUT"
-
 
 # You can now use the $TEAM_OU_MAPPING_OUTPUT variable as needed in your script
+TEAM_OPTIONS="-"$'\n'
+for team_name in "${TEAM_NAMES[@]}"; do
+    TEAM_OPTIONS+="          - $team_name"$'\n'
+done
+
+find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"$TEAM_OPTIONS\" {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
