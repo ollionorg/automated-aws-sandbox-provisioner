@@ -89,10 +89,12 @@ jobs:
           fi
 
       - name: "Select Pool OU and Sandbox OU according to team"
+        working-directory: aws/provision
         id: "ou_select"
+        env:
+           INPUT_TEAM: ${{ inputs.TEAM }}
         run: |
-          case ${{ inputs.TEAM }} in
-          REPLACE_TEAM_OU_MAPPING_OUTPUT
+          bash team_ou_select.sh
 
       - name: "Workflow Status Slack Notification"
         if: failure()

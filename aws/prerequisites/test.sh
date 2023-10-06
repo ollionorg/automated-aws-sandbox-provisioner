@@ -25,11 +25,7 @@ if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#
     exit 1
 fi
 
-# Initialize the TEAM_OU_MAPPING_OUTPUT variable
-TEAM_OU_MAPPING_OUTPUT=""
-
-# Append to the TEAM_OU_MAPPING_OUTPUT variable
-TEAM_OU_MAPPING_OUTPUT+="case \${{ inputs.TEAM }} in"$'\n'
+TEAM_OU_MAPPING_OUTPUT="../provision/team_ou_select.sh"
 
 # Generate the case statements dynamically based on the arrays
 for ((i = 0; i < ${#TEAM_NAMES[@]}; i++)); do
@@ -37,28 +33,21 @@ for ((i = 0; i < ${#TEAM_NAMES[@]}; i++)); do
     sandbox_ou_id="${TEAM_SANDBOX_OUs[i]}"
     pool_ou_id="${TEAM_POOL_OUs[i]}"
 
-    TEAM_OU_MAPPING_OUTPUT+="    $team_name)"$'\n'
-    TEAM_OU_MAPPING_OUTPUT+="        echo \"SANDBOX_OU_ID=$sandbox_ou_id\" >> \$GITHUB_OUTPUT"$'\n'
-    TEAM_OU_MAPPING_OUTPUT+="        echo \"POOL_OU_ID=$pool_ou_id\" >> \$GITHUB_OUTPUT"$'\n'
-    TEAM_OU_MAPPING_OUTPUT+="        ;;"$'\n'
+    cat <<EOL >> "$TEAM_OU_MAPPING_OUTPUT"
+        $team_name)
+            echo "SANDBOX_OU_ID=$sandbox_ou_id" >> \$GITHUB_OUTPUT
+            echo "POOL_OU_ID=$pool_ou_id" >> \$GITHUB_OUTPUT
+            ;;
+EOL
 done
 
 # Append the esac to close the case statement
-TEAM_OU_MAPPING_OUTPUT+="esac"$'\n'
-
-
-WORKFLOW_TEAM_INPUT_OPTIONS=""
-for team_name in "${TEAM_NAMES[@]}"; do
-    WORKFLOW_TEAM_INPUT_OPTIONS+="  - $team_name"$'\n'
-done
+echo "esac" >> "$TEAM_OU_MAPPING_OUTPUT"
 
 
 # Output the generated script
 echo "Generated script:"
-echo "$TEAM_OU_MAPPING_OUTPUT"
+cat "$TEAM_OU_MAPPING_OUTPUT"
 
-# Set the WORKFLOW_TEAM_INPUT_OPTIONS variable
-echo "WORKFLOW_TEAM_INPUT_OPTIONS:"
-echo "$WORKFLOW_TEAM_INPUT_OPTIONS"
 
 # You can now use the $TEAM_OU_MAPPING_OUTPUT variable as needed in your script

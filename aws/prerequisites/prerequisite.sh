@@ -326,42 +326,30 @@ policies will be attached to the respective roles.\n"
       fi
     else
       echo -e "${YELLOW}SSO is not enabled. Skipping SSO-related commands${NC}"
+      echo "Replacing SSO_ENABLED flag in workflows"
       find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
-    # Initialize the TEAM_OU_MAPPING_OUTPUT variable
-    TEAM_OU_MAPPING_OUTPUT=""
-    # Generate the case statements dynamically based on the arrays
+    TEAM_OU_MAPPING_OUTPUT="../provision/team_ou_select.sh"
+
+    # Generate the case statements for team and ou mapping dynamically based on the arrays
     for ((i = 0; i < ${#TEAM_NAMES[@]}; i++)); do
         team_name="${TEAM_NAMES[i]}"
         sandbox_ou_id="${TEAM_SANDBOX_OUs[i]}"
         pool_ou_id="${TEAM_POOL_OUs[i]}"
 
-        TEAM_OU_MAPPING_OUTPUT+="    $team_name)"$'\n'
-        TEAM_OU_MAPPING_OUTPUT+="        echo \"SANDBOX_OU_ID=$sandbox_ou_id\" >> \$GITHUB_OUTPUT"$'\n'
-        TEAM_OU_MAPPING_OUTPUT+="        echo \"POOL_OU_ID=$pool_ou_id\" >> \$GITHUB_OUTPUT"$'\n'
-        TEAM_OU_MAPPING_OUTPUT+="        ;;"$'\n'
+        cat <<EOL >> "$TEAM_OU_MAPPING_OUTPUT"
+            $team_name)
+                echo "SANDBOX_OU_ID=$sandbox_ou_id" >> \$GITHUB_OUTPUT
+                echo "POOL_OU_ID=$pool_ou_id" >> \$GITHUB_OUTPUT
+                ;;
+EOL
     done
 
     # Append the esac to close the case statement
-    TEAM_OU_MAPPING_OUTPUT+="esac"$'\n'
+    echo "esac" >> "$TEAM_OU_MAPPING_OUTPUT"
 
-
-    WORKFLOW_TEAM_INPUT_OPTIONS=""
-    for team_name in "${TEAM_NAMES[@]}"; do
-        WORKFLOW_TEAM_INPUT_OPTIONS+="  - $team_name"$'\n'
-    done
-
-    # Output the generated script
-    echo "Generated script:"
-    echo "$TEAM_OU_MAPPING_OUTPUT"
-
-    # Set the WORKFLOW_TEAM_INPUT_OPTIONS variable
-    echo "WORKFLOW_TEAM_INPUT_OPTIONS:"
-    echo "$WORKFLOW_TEAM_INPUT_OPTIONS"
-
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_TEAM_OU_MAPPING_OUTPUT=${TEAM_OU_MAPPING_OUTPUT} -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$WORKFLOW_TEAM_INPUT_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    # find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     exit 0
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
