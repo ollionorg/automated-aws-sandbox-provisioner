@@ -45,7 +45,7 @@ export TEAM_POOL_OUs=()
 sleep 1
 
 # Check if the user has administrator access
-if aws iam list-attached-user-policies --user-name "$(aws sts get-caller-identity --query "Arn" --output text | cut -d'/' -f2)" | grep -q "qAdministratorAccess"; then
+if aws iam list-attached-user-policies --user-name "$(aws sts get-caller-identity --query "Arn" --output text | cut -d'/' -f2)" | grep -q "AdministratorAccess"; then
     echo "Starting with the script..."
 else
     echo -e "${RED}WARNING: This script should be executed by an admin to set up the sandbox provisioner properly.${NC}"
