@@ -63,7 +63,7 @@ defaults:
 jobs:
   setup-job:
     name: "setup-job"
-    runs-on: "cldcvr-pvt-runner-aws"
+    runs-on: "REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER"
     permissions:
       id-token: write
       contents: read
@@ -105,7 +105,7 @@ jobs:
   ticket-creation-and-approval:
     needs: setup-job
     name: "ticket-creation-and-approval"
-    runs-on: "cldcvr-pvt-runner-aws"
+    runs-on: "REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER"
     outputs:
       TICKET: ${{ steps.ticket.outputs.ticket }}
     permissions:
@@ -204,7 +204,7 @@ jobs:
   provision-account:
     needs: [setup-job, ticket-creation-and-approval]
     name: "provision-account"
-    runs-on: "cldcvr-pvt-runner-aws"
+    runs-on: "REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER"
     permissions:
       id-token: write
       contents: read

@@ -146,8 +146,6 @@ self_hosted_runner_prerequisites_check() {
           echo -e "${RED}Exiting...${NC}"
           exit 0
       fi
-    else
-        echo -e "\nself-hosted runner prerequisite check successful"
     fi
 
     #list all existing VPCs and their CIDR blocks
@@ -160,6 +158,8 @@ self_hosted_runner_prerequisites_check() {
             exit 1
         fi
     done
+
+    echo -e "\nSelf Hosted runner prerequisite check successful ✅"
 
 }
 
@@ -184,7 +184,7 @@ check_aws_cli_configuration() {
         print_message "AWS CLI is not configured with valid credentials. Please run 'aws configure' to set up your credentials or use your preferred method to authenticate." "$RED"
         exit 1
     fi
-    echo -e "\naws cli prerequisites check successful"
+    echo -e "\nAWS cli prerequisites check successful ✅"
 }
 
 # Function to validate JSON file existence and readability
@@ -381,7 +381,7 @@ main() {
     #runner prerequisite check
     self_hosted_runner_prerequisites_check
 
-    echo -e "\nChecking organizational unit id input required as the base to create OU structure for the Sandbox provisioner"
+    echo -e "\nChecking organizational unit [ OU Id ] input variable which will be used to create OU structure for the Sandbox provisioner"
 
     # Check if PARENT_OU_ID is blank or empty
     if [ -z "$PARENT_OU_ID" ]; then
@@ -426,7 +426,7 @@ main() {
 
         # Display the instance ARN and Identity Store ID
         echo -e "\nSSO instance ARN: ${RED}$SSO_INSTANCE_ARN ${NC}"
-        echo -e "Identity Store ID: ${RED}$SSO_IDENTITY_STORE_ID ${YELLOW}"
+        echo -e "Identity Store ID: ${RED}$SSO_IDENTITY_STORE_ID ${GREEN}\n"
         read -rp "Confirm the above SSO Instance Details. Do you want to continue? (y/n): " continue
         echo -e "${NC}"
         if [[ "$continue" =~ ^[Yy]$ ]]; then
@@ -506,7 +506,7 @@ EOL
 
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     echo -e "${YELLOW}Completed substituting.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy

@@ -24,7 +24,7 @@ defaults:
 jobs:
   nuke-setup:
     name: "aws-nuke"
-    runs-on: "cldcvr-pvt-runner-aws"    
+    runs-on: "REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER"
     permissions:
       id-token: write
       contents: read
