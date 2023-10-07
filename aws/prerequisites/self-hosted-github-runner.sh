@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo -e "${RED}----------------------------------------------------${NC}"
+echo -e "Starting with Self Hosted Runner Setup"
+echo -e "${RED}----------------------------------------------------${NC}"
 
 # Define the trust policy JSON
 TRUST_POLICY_JSON='{
@@ -131,7 +134,7 @@ aws iam add-role-to-instance-profile \
 
 sleep 5
 
-KEY_NAME="my-ec2-key-pair-7"
+KEY_NAME="my-ec2-key-pair-8"
 # Check if the key pair already exists
 existing_key=$(aws ec2 describe-key-pairs --region "$AWS_DEFAULT_REGION" --key-names "$KEY_NAME" --query "KeyPairs[0].KeyName" --output text)
 
@@ -170,7 +173,7 @@ COMMANDS=(
   "curl -o actions-runner-linux-x64-2.309.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.309.0/actions-runner-linux-x64-2.309.0.tar.gz"
   "tar xzf ./actions-runner-linux-x64-2.309.0.tar.gz"
   "sudo yum install libicu -y"
-  "./config.sh --url https://github.com/cldcvr/aws-sandbox-provisioner --token ALS42MANWGXH423PBY5J3LDFEEDKC --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended"
+  "./config.sh --url https://github.com/cldcvr/aws-sandbox-provisioner --token $GITHUB_RUNNER_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended"
 )
 
 # Create the runner and start the configuration experience

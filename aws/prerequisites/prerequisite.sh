@@ -5,14 +5,20 @@ set -e
 
 export policy_name="SandboxProvisionerPolicy"
 export policy_file="sandbox_provisioner_policy.json"
-export role_name="SandboxAccountManagementRole"
-export lambda_policy_name="SandboxLambdaPolicy"
+export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
+export LAMBDA_POLICY_NAME="SandboxLambdaPolicy"
 export lambda_policy_file="sandbox_lambda_policy.json"
 export lambda_role_name="SandboxLambdaRole"
 export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
 export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
 export SECRET_NAME="sandbox/git"
 export SECRET_KEY_NAME="git_token"
+export SELF_HOSTED_RUNNER_SG_NAME="SelfHostedRunnerSecurityGroup"
+export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
+export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
+export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
+export SSH_USER="ec2-user"
+
 
 export AWS_DEFAULT_REGION="us-east-1"
 export SSO_ENABLED="true"                               # set to true if your organization has SSO enabled and uses AWS IAM Identity center
@@ -23,16 +29,9 @@ export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                             
 export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
 export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
 
-
-export AWS_DEFAULT_REGION="us-east-1"
 export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
 export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
 export INSTANCE_TYPE="t2.micro"
-export SELF_HOSTED_RUNNER_SG_NAME="SelfHostedRunnerSecurityGroup"
-export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
-export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
-export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
-export SSH_USER="ec2-user"
 
 
 # Define color codes
@@ -45,9 +44,6 @@ export TEAM_POOL_OUs=()
 
 sleep 1
 
-bash self-hosted-github-runner.sh
-
-exit 0
 
 if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
@@ -117,12 +113,12 @@ create_sandbox_ous() {
     echo "-------------------------------"
 }
 
-self_hosted_runner_prereq() {
+self_hosted_runner_prerequisites_check() {
     # Check the value of SELF_HOSTED_RUNNER_LABEL
     if [ "$SELF_HOSTED_RUNNER_LABEL" != "aws-sandbox-gh-runner" ]; then
       echo -e "\n${RED}-----------IMPORTANT----------${NC}"
       echo -e "As a runner label other than 'aws-sandbox-gh-runner' was provided, you intend to use existing runner instance/instances for this sandbox provisioner workflow."
-      echo -e "Make sure that the runner instance has the ability to ${YELLOW}assume the $role_name in the management account${NC} to perform the tasks. If not, add the necessary policies"
+      echo -e "Make sure that the runner instance has the ability to ${YELLOW}assume the $SANDBOX_MANAGEMENT_ROLE_NAME in the management account${NC} to perform the tasks. If not, add the necessary policies"
       echo -e "\nIn case you want to make use of the runner created by this workflow, make sure to rename the variable ${YELLOW}SELF_HOSTED_RUNNER_LABEL${NC} to ${YELLOW}\"aws-sandbox-gh-runner\"${NC}"
       echo -e "${RED}-------READ THOROUGHLY-------${NC}"
 
@@ -136,7 +132,9 @@ self_hosted_runner_prereq() {
           exit 0
       fi
     else
-        true
+        echo -----------------------------------------------
+        echo "self-hosted runner prerequisite check successful"
+        echo -----------------------------------------------
     fi
 }
 
@@ -161,6 +159,9 @@ check_aws_cli_configuration() {
         print_message "AWS CLI is not configured with valid credentials. Please run 'aws configure' to set up your credentials or use your preferred method to authenticate." "$RED"
         exit 1
     fi
+    echo -----------------------------------------------
+    echo "aws cli prerequisites check successful"
+    echo -----------------------------------------------
 }
 
 # Function to validate JSON file existence and readability
@@ -208,16 +209,16 @@ check_existing_policy() {
 
 # Function to check if an IAM Role exists
 check_existing_role() {
-    local role_name="$1"
+    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
     local policy_name="$2"
 
-    if aws iam get-role --role-name "$role_name" &>/dev/null; then
-        read -rp "Role '$role_name' already exists. Do you want to use the existing role? (y/n): " reuse_role
+    if aws iam get-role --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" &>/dev/null; then
+        read -rp "Role '$SANDBOX_MANAGEMENT_ROLE_NAME' already exists. Do you want to use the existing role? (y/n): " reuse_role
         if [[ "$reuse_role" =~ ^[Yy]$ ]]; then
-            if check_policy_attachment "$role_name" "$policy_name"; then
-                print_message "Using existing IAM Role: '$role_name'" "$GREEN"
+            if check_policy_attachment "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"; then
+                print_message "Using existing IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'" "$GREEN"
             else
-                attach_policy_to_role "$role_name" "$policy_name"
+                attach_policy_to_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"
             fi
             return 0
         else
@@ -229,13 +230,13 @@ check_existing_role() {
 
 # Function to check if the policy is attached to the role
 check_policy_attachment() {
-    local role_name="$1"
+    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
     local policy_name="$2"
 
     local policy_arn="arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name"
 
-    if aws iam list-attached-role-policies --role-name "$role_name" | jq -r ".AttachedPolicies[].PolicyArn" | grep -q "$policy_arn"; then
-        echo "Policy '$policy_name' is already attached to the role '$role_name'."
+    if aws iam list-attached-role-policies --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" | jq -r ".AttachedPolicies[].PolicyArn" | grep -q "$policy_arn"; then
+        echo "Policy '$policy_name' is already attached to the role '$SANDBOX_MANAGEMENT_ROLE_NAME'."
         return 0
     fi
 
@@ -244,31 +245,31 @@ check_policy_attachment() {
 
 # Function to attach the policy to the role
 attach_policy_to_role() {
-    local role_name="$1"
+    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
     local policy_name="$2"
 
-    if ! aws iam attach-role-policy --role-name "$role_name" --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name" &>/dev/null; then
-        echo "Failed to attach the policy '$policy_name' to the IAM Role: '$role_name'."
+    if ! aws iam attach-role-policy --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query 'Account' --output text):policy/$policy_name" &>/dev/null; then
+        echo "Failed to attach the policy '$policy_name' to the IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'."
         exit 1
     fi
 
-    echo "Policy '$policy_name' attached to the IAM Role '$role_name' successfully."
+    echo "Policy '$policy_name' attached to the IAM Role '$SANDBOX_MANAGEMENT_ROLE_NAME' successfully."
 }
 
 # Function to create an AWS IAM Role and attach the policy to it
 create_aws_role() {
-    local role_name="$1"
+    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
     local policy_name="$2"
 
-    if ! aws iam create-role --role-name "$role_name" --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": "organizations.amazonaws.com"},"Action": "sts:AssumeRole"}]}' &>/dev/null; then
-        print_message "Failed to create the IAM Role: '$role_name'. Possibly due to duplicate name or permission issues" "$RED"
+    if ! aws iam create-role --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": "organizations.amazonaws.com"},"Action": "sts:AssumeRole"}]}' &>/dev/null; then
+        print_message "Failed to create the IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'. Possibly due to duplicate name or permission issues" "$RED"
         exit 1
     fi
 
-    if check_policy_attachment "$role_name" "$policy_name"; then
-        echo "Using existing IAM Role: '$role_name'"
+    if check_policy_attachment "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"; then
+        echo "Using existing IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'"
     else
-        attach_policy_to_role "$role_name" "$policy_name"
+        attach_policy_to_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"
     fi
 }
 
@@ -297,60 +298,80 @@ main() {
 
     REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
     REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
-
+    echo -e "${RED}----------------------------------------------------${NC}"
+    echo -e "Starting with Sandbox Provisioner Prerequisite Setup"
+    echo -e "${RED}----------------------------------------------------${NC}"
     print_message "Below resources will be created" "$GREEN"
     sleep 1
     echo -e "
-1. IAM policies ${YELLOW}[ $policy_name, $lambda_policy_name ]${NC}
-2. IAM roles ${YELLOW}[ $role_name, $lambda_role_name ]${NC}
-3. Secret containing GitHub token which will be used for triggering workflow to revoke access of sandbox.
-policies will be attached to the respective roles.\n"
+1. IAM policies [ $policy_name, $LAMBDA_POLICY_NAME ]
+2. IAM roles [ $SANDBOX_MANAGEMENT_ROLE_NAME, $lambda_role_name ]
+3. Secret containing GitHub token which will be used for triggering workflow to revoke access of sandbox
+4. SelfHosted GitHub runner along with related components with registration [ VPC, Subnet, SecurityGroup, Role, InstanceProfile, InternetGateway, Rule, Routes ] subject to runner label
+5. Organizational Unit [ OU ] structure for the sandbox provisioner
+"
     sleep 1
 
-    echo -e "Using region : ${RED}$AWS_DEFAULT_REGION${NC} to deploy the resources."
+    echo -e "Using region      : ${YELLOW}$AWS_DEFAULT_REGION${NC} to deploy the resources."
     echo -e "GitHub Repo Owner : ${YELLOW}$REPO_OWNER${NC}"
-    echo -e "GitHub Repo Name : ${YELLOW}$REPO_NAME${NC}"
+    echo -e "GitHub Repo Name  : ${YELLOW}$REPO_NAME${NC}"
     sleep 1
 
+    echo -e "\nMake sure you are authenticated to the management account and the default region above is as expected."
     echo -e "$GREEN"
-    read -rp "Make sure you are authenticated to the management account and the default region above is as expected. Do you want to continue? (y/n): " continue
+    read -rp "Do you want to continue? (y/n): " continue
     echo -e "$NC"
     if [[ "$continue" =~ ^[Yy]$ ]]; then
-        true
+        # Validate master account
+        if ! [[ $(aws organizations describe-organization --query "Organization.MasterAccountId" --output text) = $(aws sts get-caller-identity --query "Account" --output text) ]];then
+          echo -e "${RED}This is not a master account under a organization. Please authenticate to a master account in order to setup the prerequisites. Exiting...${NC}"
+          exit 1
+        fi
     else
         print_message "Exiting..." "$RED"
         exit 0
     fi
 
-    print_message "Checking prerequisites..." "$GREEN"
+    # Prompt user to enter GitHub token (github_token)
+    read -rp "Enter GitHub token with access to the repository and workflows. It will be stored securely in AWS Secrets Manager ] : " github_token
 
-    # Check if the AWS CLI is installed
-    check_aws_cli
+    if [[ -z "$github_token" ]]; then
+        echo -e "${RED}Empty token value, Please enter valid GitHub token with access to the repository and workflows"
+        exit 1
+    fi
+    # Use GitHub API to get token details
+    token_scopes=$(curl -sS -f -I -H "Authorization: token ${github_token}" https://api.github.com | grep ^x-oauth-scopes: | cut -d' ' -f2- | tr -d "[:space:]")
 
-    # Check AWS CLI configuration with valid credentials
-    check_aws_cli_configuration
-
-
-    # Validate master account
-    if ! [[ $(aws organizations describe-organization --query "Organization.MasterAccountId" --output text) -eq $(aws sts get-caller-identity --query "Account" --output text) ]];then
-      echo -e "${RED}This is not a master account under a organization. Please authenticate to a master account in order to setup the prerequisites. Exiting...${NC}"
-      exit 1
+    # Check if the "workflow" scope is present in the token's scopes
+    if [[ ! $token_scopes == *workflow* ]]; then
+        echo -e "\n${RED}IMPORTANT${NC} Token does not have the ${YELLOW}'workflow'${NC} scope."
+        echo "Please provide a valid token with the necessary permissions."
+        print_message "Exiting..." "$RED"
+        exit 1
     fi
 
-    self_hosted_runner_prereq
+    print_message "Checking prerequisites..." "$GREEN"
+    # Check if the AWS CLI is installed
+    check_aws_cli
+    # Check AWS CLI configuration with valid credentials
+    check_aws_cli_configuration
+    #runner prerequisite check
+    self_hosted_runner_prerequisites_check
+
+    echo "Checking OU Id inputs"
 
     # Check if PARENT_OU_ID is blank or empty
     if [ -z "$PARENT_OU_ID" ]; then
-        echo "PARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
+        echo -e "\nPARENT_OU_ID is blank or empty. Considering the root of the org as parent as default to create the Sandbox OU"
         echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
 
         PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
-        echo "Using $PARENT_OU_ID as parent to deploy the OUs for sandbox provisioner."
+        echo -e "\nUsing ${YELLOW}${PARENT_OU_ID} ${NC} as parent to deploy the OUs for sandbox provisioner."
 
     else
         OU_EXISTS=$(aws organizations describe-organizational-unit --organizational-unit-id "$PARENT_OU_ID" 2>&1)
         if [[ $? -ne 0 ]]; then
-            echo "Provided PARENT_OU_ID does not exist: $PARENT_OU_ID"
+            echo -e "\n${RED}Provided PARENT_OU_ID does not exist: $PARENT_OU_ID${NC}"
             echo "Please check and correct. Exiting..."
             exit 1
         fi
@@ -358,15 +379,18 @@ policies will be attached to the respective roles.\n"
 
     fi
 
+    export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -X POST \
+      -H "Authorization: token $github_token" \
+      -H "Accept: application/vnd.github.v3+json" \
+      "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/actions/runners/registration-token" | jq -r '.token')
+
+    #find . -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_GITHUB_RUNNER_REGISTRATION_TOKEN=${GITHUB_RUNNER_REGISTRATION_TOKEN} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
 
-#TODO Remove
-#    # Check if the number of teams matches the number of OU IDs
-#    if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
-#        echo "Error: The number of teams does not match the number of OU IDs."
-#        exit 1
-#    fi
+    # Create Github runner
+    bash self-hosted-github-runner.sh
 
+    exit 0
 
     # Check if SSO is enabled
     if [ "$SSO_ENABLED" = "true" ]; then
@@ -459,13 +483,11 @@ EOL
         TEAM_OPTIONS+="          - $team_name"$'\n'
     done
 
-
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
     exit 0
 
 
     echo -e "${YELLOW}Substituting variables in files.${NC}"
+
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
@@ -474,8 +496,7 @@ EOL
 
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$TEAM_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     echo -e "${YELLOW}Completed substituting.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy
@@ -495,27 +516,22 @@ EOL
 
 
     # Check if the role already exists and prompt for reuse
-    if ! check_existing_role "$role_name" "$policy_name"; then
-        create_aws_role "$role_name" "$policy_name"
+    if ! check_existing_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"; then
+        create_aws_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"
     fi
 
     # Check if the lambda policy already exists and prompt for reuse
-    if check_existing_policy "$lambda_policy_name"; then
-        print_message "Using existing policy: '$lambda_policy_name'" "$GREEN"
+    if check_existing_policy "$LAMBDA_POLICY_NAME"; then
+        print_message "Using existing policy: '$LAMBDA_POLICY_NAME'" "$GREEN"
     else
         # Create the lambda policy in the AWS Management Account
-        create_aws_policy "$lambda_policy_name" "$lambda_policy_file"
+        create_aws_policy "$LAMBDA_POLICY_NAME" "$lambda_policy_file"
     fi
 
     # Check if the role already exists and prompt for reuse
-    if ! check_existing_role "$lambda_role_name" "$lambda_policy_name"; then
-        create_aws_role "$lambda_role_name" "$lambda_policy_name"
+    if ! check_existing_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"; then
+        create_aws_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
     fi
-
-
-
-    # Prompt user to enter GitHub token (GITHUB_TOKEN)
-    read -rp "Enter GITHUB_TOKEN (used to trigger cleanup workflow from lambda, Will be stored securely in AWS Secrets Manager): " github_token
 
     # Create the secret in AWS Secrets Manager
     create_aws_secret "$SECRET_NAME" "$SECRET_KEY_NAME" "$github_token"
