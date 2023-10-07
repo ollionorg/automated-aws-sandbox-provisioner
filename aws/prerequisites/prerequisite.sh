@@ -21,6 +21,9 @@ export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                             
 export REQUIRES_MANAGER_APPROVAl="true"                                                   # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
 export APPROVAL_DURATION=8
 
+
+export TEAM_SANDBOX_OUs=()
+export TEAM_POOL_OUs=()
 # Define the team names and OU ids - refer OU prerequisites at aws/prerequisites/OU_PREREQUISITES.md
 export PARENT_OU_ID=""
 export TEAM_NAMES=("dev-team" "qa-team" "devops-team")          # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
@@ -41,7 +44,61 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   exit 1
 fi
 
-bash ou_creation.sh
+#####################################################################################################
+create_ou() {
+    local ou_name="$1"
+    local parent_ou="$2"
+    OU_ID_CREATED=$(aws organizations create-organizational-unit --parent-id "$parent_ou" --name "$ou_name" | jq -r '.OrganizationalUnit.Id')
+    echo "$OU_ID_CREATED"
+}
+
+# Function to add OU to the array
+add_ou_to_array() {
+    local team_ou="$1"
+    local team_pool_ou="$2"
+    TEAM_SANDBOX_OUs+=("$team_ou")
+    TEAM_POOL_OUs+=("$team_pool_ou")
+}
+
+# Check if PARENT_OU_ID is blank or empty
+if [ -z "$PARENT_OU_ID" ]; then
+    echo "PARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
+    echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
+
+    PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
+    echo "Using $PARENT_OU_ID as parent to deploy the OUs for sandbox provisioner."
+
+else
+    OU_EXISTS=$(aws organizations describe-organizational-unit --organizational-unit-id "$PARENT_OU_ID" 2>&1)
+    if [[ $? -ne 0 ]]; then
+        echo "Provided PARENT_OU_ID does not exist: $PARENT_OU_ID"
+        echo "Please check and correct. Exiting..."
+        exit 1
+    fi
+    echo "PARENT_OU_ID provided is $PARENT_OU_ID. All the OUs for sandbox provisioner will be created under this OU"
+
+fi
+
+echo "-------------------------------"
+echo "Creating main Sandbox OU"
+SANDBOX_OU_ID=$(create_ou "SANDBOX_OU" "$PARENT_OU_ID")
+echo "Sandbox OU id : $SANDBOX_OU_ID"
+
+# Iterate through the team names and create OUs
+for team_name in "${TEAM_NAMES[@]}"; do
+    echo "-------------------------------"
+    echo "Working on OU creation for $team_name"
+    team_sandbox_ou="${team_name}-sandbox-ou"
+    team_sandbox_pool_ou="${team_name}-sandbox-pool-ou"
+
+    TEAM_OU=$(create_ou "$team_sandbox_ou" "$SANDBOX_OU_ID")
+    TEAM_POOL_OU=$(create_ou "$team_sandbox_pool_ou" "$TEAM_OU")
+    sleep 1
+    add_ou_to_array "$TEAM_OU" "$TEAM_POOL_OU"
+    echo "Created OUs for $team_name : $TEAM_OU, $TEAM_POOL_OU"
+done
+echo "-------------------------------"
+#####################################################################################################
 
 # Check if at least one team is defined
 if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
@@ -66,6 +123,7 @@ if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#
     exit 1
 fi
 
+echo "Success"
 
 # Check the value of SELF_HOSTED_RUNNER_LABEL
 if [ "$SELF_HOSTED_RUNNER_LABEL" != "aws-sandbox-gh-runner" ]; then
@@ -88,7 +146,6 @@ else
     true
 fi
 
-exit 0
 
 ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
 EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
@@ -380,6 +437,7 @@ EOL
 
     exit 0
 
+
     echo -e "${YELLOW}Substituting variables in files.${NC}"
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
@@ -389,7 +447,7 @@ EOL
 
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$WORKFLOW_TEAM_INPUT_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$TEAM_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
 
     echo -e "${YELLOW}Completed substituting.${NC}"

@@ -4,8 +4,7 @@
 
 
 #export TEAM_NAMES=("dev-team" "qa-team")
-declare -a TEAM_SANDBOX_OUs=()
-declare -a TEAM_POOL_OUs=()
+
 
 # Create a function to create an OU
 create_ou() {
