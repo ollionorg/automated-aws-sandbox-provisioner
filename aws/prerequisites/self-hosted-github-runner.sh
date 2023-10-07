@@ -226,6 +226,7 @@ echo -e "${RED}----------------------------------------------------${NC}"
 echo -e "        Self Hosted Runner Setup Completed"
 echo -e "${RED}----------------------------------------------------${NC}"
 
+
 #aws iam delete-instance-profile \
 #  --instance-profile-name GitHubRunnerInstanceProfile
-#
+

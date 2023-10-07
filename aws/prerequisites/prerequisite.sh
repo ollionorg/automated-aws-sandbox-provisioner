@@ -378,19 +378,6 @@ main() {
 
     fi
 
-    export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -s -X POST \
-      -H "Authorization: token $github_token" \
-      -H "Accept: application/vnd.github.v3+json" \
-      "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/runners/registration-token" | jq -r '.token')
-
-    #find . -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_GITHUB_RUNNER_REGISTRATION_TOKEN=${GITHUB_RUNNER_REGISTRATION_TOKEN} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
-
-    # Create Github runner
-    bash self-hosted-github-runner.sh
-
-    exit 0
-
     # Check if SSO is enabled
     if [ "$SSO_ENABLED" = "true" ]; then
       # Run the AWS CLI command and store the output in SSO_INSTANCE_INFO variable
@@ -482,9 +469,6 @@ EOL
         TEAM_OPTIONS+="          - $team_name"$'\n'
     done
 
-    exit 0
-
-
     echo -e "${YELLOW}Substituting variables in files.${NC}"
 
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
@@ -534,6 +518,14 @@ EOL
 
     # Create the secret in AWS Secrets Manager
     create_aws_secret "$SECRET_NAME" "$SECRET_KEY_NAME" "$github_token"
+
+    export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -s -X POST \
+      -H "Authorization: token $github_token" \
+      -H "Accept: application/vnd.github.v3+json" \
+      "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/runners/registration-token" | jq -r '.token')
+
+    # Create Self Hosted Github runner
+    bash self-hosted-github-runner.sh
 
     print_message "Done" "$GREEN"
     exit 0
