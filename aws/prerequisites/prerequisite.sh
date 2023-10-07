@@ -22,9 +22,10 @@ export REQUIRES_MANAGER_APPROVAl="true"                                         
 export APPROVAL_DURATION=8
 
 # Define the team names and OU ids - refer OU prerequisites at aws/prerequisites/OU_PREREQUISITES.md
+export PARENT_OU_ID=""
 export TEAM_NAMES=("dev-team" "qa-team" "devops-team")          # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
-export TEAM_SANDBOX_OUs=("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
-export TEAM_POOL_OUs=("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
+#export TEAM_SANDBOX_OUs=("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
+#export TEAM_POOL_OUs=("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
 
 
 # Define color codes
@@ -39,6 +40,8 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
   exit 1
 fi
+
+bash ou_creation.sh
 
 # Check if at least one team is defined
 if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
