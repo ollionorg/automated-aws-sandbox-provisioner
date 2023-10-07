@@ -132,9 +132,7 @@ self_hosted_runner_prerequisites_check() {
           exit 0
       fi
     else
-        echo -----------------------------------------------
-        echo "self-hosted runner prerequisite check successful"
-        echo -----------------------------------------------
+        echo -e "\nself-hosted runner prerequisite check successful"
     fi
 }
 
@@ -159,9 +157,7 @@ check_aws_cli_configuration() {
         print_message "AWS CLI is not configured with valid credentials. Please run 'aws configure' to set up your credentials or use your preferred method to authenticate." "$RED"
         exit 1
     fi
-    echo -----------------------------------------------
-    echo "aws cli prerequisites check successful"
-    echo -----------------------------------------------
+    echo -e "\naws cli prerequisites check successful"
 }
 
 # Function to validate JSON file existence and readability
@@ -296,8 +292,8 @@ create_aws_secret() {
 
 main() {
 
-    REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
-    REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
+    export REPO_OWNER=$(git config --get remote.origin.url | awk -F ':' '{print $2}' | cut -d '/' -f 1)
+    export REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
     echo -e "${RED}----------------------------------------------------${NC}"
     echo -e "Starting with Sandbox Provisioner Prerequisite Setup"
     echo -e "${RED}----------------------------------------------------${NC}"
@@ -333,7 +329,7 @@ main() {
     fi
 
     # Prompt user to enter GitHub token (github_token)
-    read -rp "Enter GitHub token with access to the repository and workflows. It will be stored securely in AWS Secrets Manager ] : " github_token
+    read -rp "Enter GitHub token with access to the repository '$REPO_NAME' and workflows. It will be stored securely in AWS Secrets Manager ] : " github_token
 
     if [[ -z "$github_token" ]]; then
         echo -e "${RED}Empty token value, Please enter valid GitHub token with access to the repository and workflows"
@@ -358,15 +354,18 @@ main() {
     #runner prerequisite check
     self_hosted_runner_prerequisites_check
 
-    echo "Checking OU Id inputs"
+    echo -e "\nChecking organizational unit id input required as the base to create OU structure for the Sandbox provisioner"
 
     # Check if PARENT_OU_ID is blank or empty
     if [ -z "$PARENT_OU_ID" ]; then
-        echo -e "\nPARENT_OU_ID is blank or empty. Considering the root of the org as parent as default to create the Sandbox OU"
+        echo -e "\nPARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
         echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
 
         PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
         echo -e "\nUsing ${YELLOW}${PARENT_OU_ID} ${NC} as parent to deploy the OUs for sandbox provisioner."
+        echo -e "$GREEN"
+        read -rp "Do you want to continue? (y/n): " continue
+        echo -e "$NC"
 
     else
         OU_EXISTS=$(aws organizations describe-organizational-unit --organizational-unit-id "$PARENT_OU_ID" 2>&1)
@@ -379,10 +378,10 @@ main() {
 
     fi
 
-    export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -X POST \
+    export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -s -X POST \
       -H "Authorization: token $github_token" \
       -H "Accept: application/vnd.github.v3+json" \
-      "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/actions/runners/registration-token" | jq -r '.token')
+      "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/runners/registration-token" | jq -r '.token')
 
     #find . -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_GITHUB_RUNNER_REGISTRATION_TOKEN=${GITHUB_RUNNER_REGISTRATION_TOKEN} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 

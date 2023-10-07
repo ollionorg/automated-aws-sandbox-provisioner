@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo -e "${RED}----------------------------------------------------${NC}"
-echo -e "Starting with Self Hosted Runner Setup"
+echo -e "         Starting Self Hosted Runner Setup"
 echo -e "${RED}----------------------------------------------------${NC}"
 
 # Define the trust policy JSON
@@ -76,11 +76,21 @@ else
     echo "Route Table created with ID: $ROUTE_TABLE_ID"
 fi
 
-aws ec2 associate-route-table --route-table-id "$ROUTE_TABLE_ID" --subnet-id "$SUBNET_ID" | jq .
-
+ASSOCIATION_ID=$(aws ec2 associate-route-table --route-table-id "$ROUTE_TABLE_ID" --subnet-id "$SUBNET_ID" --query 'AssociationId' --output text)
+if [ -z "$ASSOCIATION_ID" ]; then
+    echo "Error: Failed to associate route-table $ROUTE_TABLE_ID to subnet $SUBNET_ID route table."
+    exit 1
+else
+    echo "Route Table $ROUTE_TABLE_ID associated with subnet $SUBNET_ID with Association ID: $ASSOCIATION_ID"
+fi
 # Add a route to the route table to route traffic to 0.0.0.0/0 through the internet gateway
-aws ec2 create-route --route-table-id "$ROUTE_TABLE_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" --region "$AWS_DEFAULT_REGION" | jq .
-
+IGW_ROUTE_STATUS=$(aws ec2 create-route --route-table-id "$ROUTE_TABLE_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" --region "$AWS_DEFAULT_REGION" --query 'Return' --output text)
+if ! [[ "$IGW_ROUTE_STATUS" == "True" ]]; then
+    echo "Error: Failed to add route through Internet gateway"
+    exit 1
+else
+    echo "Route for 0.0.0.0/0 added through Internet gateway"
+fi
 # Create a security group for the self-hosted runner
 RUNNER_SG_ID=$(aws ec2 create-security-group --group-name "$SELF_HOSTED_RUNNER_SG_NAME" \
     --description "Security group for self-hosted GitHub runner" \
@@ -162,25 +172,34 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --query 'Instances[0].InstanceId' \
   --output text)
 
-echo "Waiting for the instance to be in active state"
+echo "Waiting for the instance to be in active state..."
 aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $AWS_DEFAULT_REGION
 
-echo "EC2 runner created"
+echo "EC2 runner instance active"
 
+echo "Setting up runner and registering to the repository $REPO_NAME"
+# Runner registration commands
 COMMANDS=(
   "sudo yum update -y"
   "mkdir actions-runner && cd actions-runner"
   "curl -o actions-runner-linux-x64-2.309.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.309.0/actions-runner-linux-x64-2.309.0.tar.gz"
   "tar xzf ./actions-runner-linux-x64-2.309.0.tar.gz"
   "sudo yum install libicu -y"
-  "./config.sh --url https://github.com/cldcvr/aws-sandbox-provisioner --token $GITHUB_RUNNER_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended"
+  "./config.sh --url https://github.com/$REPO_OWNER/$REPO_NAME --token $GITHUB_RUNNER_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,$SELF_HOSTED_RUNNER_LABEL --unattended"
 )
 
 # Create the runner and start the configuration experience
 #./config.sh --url https://github.com/REPLACE_REPO_OWNER_HERE/REPLACE_REPO_NAME_HERE --token REPLACE_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,aws-sandbox-gh-runner --unattended
 
 your_ip=$(curl -s https://ipinfo.io/ip)
-aws ec2 authorize-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" | jq .
+ADD_SSH_SG_RULE=$(aws ec2 authorize-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" --query 'Return' --output text)
+
+if [[ $ADD_SSH_SG_RULE == "True" ]]; then
+    echo "Inbound rule for SSH added to security group '$SECURITY_GROUP_NAME' for your IP address ($your_ip)."
+else
+    echo "Error creating Inbound rule for SSH"
+    echo "Runner Registration will fail. Run registration commands manually by connecting to the instance. Refer the COMMANDS in the script or docs at https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners"
+fi
 echo "Inbound rule for SSH added to security group '$SECURITY_GROUP_NAME' for your IP address ($your_ip)."
 
 
@@ -196,8 +215,16 @@ done
 
 ssh -o StrictHostKeyChecking=no -i "$KEY_NAME.pem" "$SSH_USER"@"$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)" "nohup "./run.sh" > /dev/null 2>&1 &"
 
-aws ec2 revoke-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" --query 'Return' | jq .
-echo "SSH inbound rule deleted."
+REVOKE_SSH_SG_RULE=$(aws ec2 revoke-security-group-ingress --region "$AWS_DEFAULT_REGION" --group-id "$RUNNER_SG_ID" --protocol tcp --port 22 --cidr "$your_ip/32" --query 'Return' --output text)
+if [[ $REVOKE_SSH_SG_RULE == "True" ]]; then
+    echo "SSH inbound rule deleted"
+else
+    echo "Error deleting SSH inbound rule"
+fi
+
+echo -e "${RED}----------------------------------------------------${NC}"
+echo -e "        Self Hosted Runner Setup Completed"
+echo -e "${RED}----------------------------------------------------${NC}"
 
 #aws iam delete-instance-profile \
 #  --instance-profile-name GitHubRunnerInstanceProfile
