@@ -60,44 +60,27 @@ add_ou_to_array() {
     TEAM_POOL_OUs+=("$team_pool_ou")
 }
 
-# Check if PARENT_OU_ID is blank or empty
-if [ -z "$PARENT_OU_ID" ]; then
-    echo "PARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
-    echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
-
-    PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
-    echo "Using $PARENT_OU_ID as parent to deploy the OUs for sandbox provisioner."
-
-else
-    OU_EXISTS=$(aws organizations describe-organizational-unit --organizational-unit-id "$PARENT_OU_ID" 2>&1)
-    if [[ $? -ne 0 ]]; then
-        echo "Provided PARENT_OU_ID does not exist: $PARENT_OU_ID"
-        echo "Please check and correct. Exiting..."
-        exit 1
-    fi
-    echo "PARENT_OU_ID provided is $PARENT_OU_ID. All the OUs for sandbox provisioner will be created under this OU"
-
-fi
-
-echo "-------------------------------"
-echo "Creating main Sandbox OU"
-SANDBOX_OU_ID=$(create_ou "SANDBOX_OU" "$PARENT_OU_ID")
-echo "Sandbox OU id : $SANDBOX_OU_ID"
-
-# Iterate through the team names and create OUs
-for team_name in "${TEAM_NAMES[@]}"; do
+create_sandbox_ous() {
     echo "-------------------------------"
-    echo "Working on OU creation for $team_name"
-    team_sandbox_ou="${team_name}-sandbox-ou"
-    team_sandbox_pool_ou="${team_name}-sandbox-pool-ou"
+    echo "Creating main Sandbox OU"
+    SANDBOX_OU_ID=$(create_ou "SANDBOX_OU" "$PARENT_OU_ID")
+    echo "Sandbox OU id : $SANDBOX_OU_ID"
 
-    TEAM_OU=$(create_ou "$team_sandbox_ou" "$SANDBOX_OU_ID")
-    TEAM_POOL_OU=$(create_ou "$team_sandbox_pool_ou" "$TEAM_OU")
-    sleep 1
-    add_ou_to_array "$TEAM_OU" "$TEAM_POOL_OU"
-    echo "Created OUs for $team_name : $TEAM_OU, $TEAM_POOL_OU"
-done
-echo "-------------------------------"
+    # Iterate through the team names and create OUs
+    for team_name in "${TEAM_NAMES[@]}"; do
+        echo "-------------------------------"
+        echo "Working on OU creation for $team_name"
+        team_sandbox_ou="${team_name}-sandbox-ou"
+        team_sandbox_pool_ou="${team_name}-sandbox-pool-ou"
+
+        TEAM_OU=$(create_ou "$team_sandbox_ou" "$SANDBOX_OU_ID")
+        TEAM_POOL_OU=$(create_ou "$team_sandbox_pool_ou" "$TEAM_OU")
+        sleep 1
+        add_ou_to_array "$TEAM_OU" "$TEAM_POOL_OU"
+        echo "Created OUs for $team_name : $TEAM_OU, $TEAM_POOL_OU"
+    done
+    echo "-------------------------------"
+}
 #####################################################################################################
 
 # Check if at least one team is defined
@@ -117,35 +100,30 @@ for team_name in "${TEAM_NAMES[@]}"; do
     fi
 done
 
-# Check if the number of teams matches the number of OU IDs
-if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
-    echo "Error: The number of teams does not match the number of OU IDs."
-    exit 1
-fi
 
-echo "Success"
 
-# Check the value of SELF_HOSTED_RUNNER_LABEL
-if [ "$SELF_HOSTED_RUNNER_LABEL" != "aws-sandbox-gh-runner" ]; then
-  echo -e "\n${RED}-----------IMPORTANT----------${NC}"
-  echo -e "As a runner label other than 'aws-sandbox-gh-runner' was provided, you intend to use existing runner instance/instances for this sandbox provisioner workflow."
-  echo -e "Make sure that the runner instance has the ability to ${YELLOW}assume the $role_name in the management account${NC} to perform the tasks. If not, add the necessary policies"
-  echo -e "\nIn case you want to make use of the runner created by this workflow, make sure to rename the variable ${YELLOW}SELF_HOSTED_RUNNER_LABEL${NC} to ${YELLOW}\"aws-sandbox-gh-runner\"${NC}"
-  echo -e "${RED}-------READ THOROUGHLY-------${NC}"
+self_hosted_runner_prereq() {
+    # Check the value of SELF_HOSTED_RUNNER_LABEL
+    if [ "$SELF_HOSTED_RUNNER_LABEL" != "aws-sandbox-gh-runner" ]; then
+      echo -e "\n${RED}-----------IMPORTANT----------${NC}"
+      echo -e "As a runner label other than 'aws-sandbox-gh-runner' was provided, you intend to use existing runner instance/instances for this sandbox provisioner workflow."
+      echo -e "Make sure that the runner instance has the ability to ${YELLOW}assume the $role_name in the management account${NC} to perform the tasks. If not, add the necessary policies"
+      echo -e "\nIn case you want to make use of the runner created by this workflow, make sure to rename the variable ${YELLOW}SELF_HOSTED_RUNNER_LABEL${NC} to ${YELLOW}\"aws-sandbox-gh-runner\"${NC}"
+      echo -e "${RED}-------READ THOROUGHLY-------${NC}"
 
-  echo -e "$GREEN"
-  read -rp "Do you want to continue? (y/n): " continue
-  echo -e "$NC"
-  if [[ "$continue" =~ ^[Yy]$ ]]; then
-      true
-  else
-      echo -e "${RED}Exiting...${NC}"
-      exit 0
-  fi
-else
-    true
-fi
-
+      echo -e "$GREEN"
+      read -rp "Do you want to continue? (y/n): " continue
+      echo -e "$NC"
+      if [[ "$continue" =~ ^[Yy]$ ]]; then
+          true
+      else
+          echo -e "${RED}Exiting...${NC}"
+          exit 0
+      fi
+    else
+        true
+    fi
+}
 
 ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
 EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
@@ -347,6 +325,36 @@ policies will be attached to the respective roles.\n"
       exit 1
     fi
 
+    self_hosted_runner_prereq
+
+    # Check if PARENT_OU_ID is blank or empty
+    if [ -z "$PARENT_OU_ID" ]; then
+        echo "PARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
+        echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
+
+        PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
+        echo "Using $PARENT_OU_ID as parent to deploy the OUs for sandbox provisioner."
+
+    else
+        OU_EXISTS=$(aws organizations describe-organizational-unit --organizational-unit-id "$PARENT_OU_ID" 2>&1)
+        if [[ $? -ne 0 ]]; then
+            echo "Provided PARENT_OU_ID does not exist: $PARENT_OU_ID"
+            echo "Please check and correct. Exiting..."
+            exit 1
+        fi
+        echo "PARENT_OU_ID provided is $PARENT_OU_ID. All the OUs for sandbox provisioner will be created under this OU"
+
+    fi
+
+    create_sandbox_ous
+
+    # Check if the number of teams matches the number of OU IDs
+    if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
+        echo "Error: The number of teams does not match the number of OU IDs."
+        exit 1
+    fi
+
+
     # Check if SSO is enabled
     if [ "$SSO_ENABLED" = "true" ]; then
       # Run the AWS CLI command and store the output in SSO_INSTANCE_INFO variable
@@ -434,6 +442,9 @@ EOL
     for team_name in "${TEAM_NAMES[@]}"; do
         TEAM_OPTIONS+="          - $team_name"$'\n'
     done
+
+
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$TEAM_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     exit 0
 

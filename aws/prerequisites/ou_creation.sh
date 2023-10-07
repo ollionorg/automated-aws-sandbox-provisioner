@@ -22,6 +22,7 @@ add_ou_to_array() {
     TEAM_POOL_OUs+=("$team_pool_ou")
 }
 
+
 # Check if PARENT_OU_ID is blank or empty
 if [ -z "$PARENT_OU_ID" ]; then
     echo "PARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
