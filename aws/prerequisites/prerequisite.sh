@@ -40,6 +40,8 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   exit 1
 fi
 
+ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
+EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
 
 # Check if at least one team is defined
 if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
@@ -119,9 +121,6 @@ self_hosted_runner_prereq() {
         true
     fi
 }
-
-ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
-EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
 
 # Function to print colored messages
 print_message() {
