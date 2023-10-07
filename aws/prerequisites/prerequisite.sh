@@ -24,6 +24,16 @@ export PARENT_OU_ID=""                                  # Keep blank to create t
 export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
 
 
+export AWS_DEFAULT_REGION="us-east-1"
+export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
+export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
+export INSTANCE_TYPE="t2.micro"
+export SELF_HOSTED_RUNNER_SG_NAME="SelfHostedRunnerSecurityGroup"
+export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
+export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
+export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
+export SSH_USER="ec2-user"
+
 
 # Define color codes
 export GREEN='\033[0;32m'
@@ -34,6 +44,10 @@ export TEAM_SANDBOX_OUs=()
 export TEAM_POOL_OUs=()
 
 sleep 1
+
+bash self-hosted-github-runner.sh
+
+exit 0
 
 if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
@@ -60,6 +74,10 @@ for team_name in "${TEAM_NAMES[@]}"; do
     fi
 done
 
+if ! command -v jq &> /dev/null; then
+    echo "jq is not installed. Please install jq to continue."
+    exit 1
+fi
 
 #####################################################################################################
 create_ou() {
