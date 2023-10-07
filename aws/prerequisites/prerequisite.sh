@@ -454,6 +454,7 @@ main() {
             exit 0
         fi
 
+        echo -e "\nUpdating SSO details in workflow files"
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
         if [ -f "../../.github/workflows/aws-provision.yml" ]; then
           find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
@@ -465,14 +466,18 @@ main() {
         echo -e "${RED}No SSO instance found. Make sure you are in correct account or disable the flag ${GREEN}'SSO_ENABLED'${NC} or create and Identity store in the management account"
       fi
     else
-      echo -e "${YELLOW}SSO is not enabled. Skipping SSO-related commands${NC}"
-      echo "Replacing SSO_ENABLED flag in workflows"
+      echo -e "${YELLOW}\nSSO is not enabled. Skipping SSO-related commands${NC}"
+      echo "Updating SSO flag in workflows"
       find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
+    echo -e "${RED}----------------------------------------------------${NC}"
+    echo -e "  Creating OU structure for Sandbox Provisioner"
+    echo -e "${RED}----------------------------------------------------${NC}"
     # Create the required OUs for the sandbox provisioner using the teams
     create_sandbox_ous
 
+    echo -e "\nUpdating team names and OU Ids in workflows"
     TEAM_OU_MAPPING_OUTPUT="../provision/team_ou_select.sh"
 
     # Generate the case statements for team and ou mapping dynamically based on the arrays
@@ -496,7 +501,9 @@ EOL
         TEAM_OPTIONS+="          - $team_name"$'\n'
     done
 
-    echo -e "${YELLOW}Substituting variables in files.${NC}"
+    echo -e "${RED}----------------------------------------------------${NC}"
+    echo -e "          Substituting variables in files"
+    echo -e "${RED}----------------------------------------------------${NC}"
 
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
