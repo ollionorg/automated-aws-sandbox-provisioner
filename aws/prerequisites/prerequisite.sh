@@ -324,7 +324,7 @@ main() {
     echo -e "${RED}----------------------------------------------------${NC}"
     echo -e "Starting with Sandbox Provisioner Prerequisite Setup"
     echo -e "${RED}----------------------------------------------------${NC}"
-    print_message "Below resources will be created" "$GREEN"
+    print_message "Below resources will be created and related files will be updated." "$GREEN"
     sleep 1
     echo -e "
 1. IAM policies [ $policy_name, $LAMBDA_POLICY_NAME ]
@@ -332,6 +332,7 @@ main() {
 3. Secret containing GitHub token which will be used for triggering workflow to revoke access of sandbox
 4. SelfHosted GitHub runner along with related components with registration [ VPC, Subnet, SecurityGroup, Role, InstanceProfile, InternetGateway, Rule, Routes ] subject to runner label
 5. Organizational Unit [ OU ] structure for the sandbox provisioner
+6. All the files related to the Sandbox Provisioner will be updated with required variables.
 "
     sleep 1
 
@@ -385,8 +386,8 @@ main() {
 
     # Check if PARENT_OU_ID is blank or empty
     if [ -z "$PARENT_OU_ID" ]; then
-        echo -e "\nPARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU"
-        echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value"
+        echo -e "\nPARENT_OU_ID is blank or empty. Considering the root of the org as parent to create the Sandbox OU structure"
+        echo "If you want to use a specific parent, please modify the PARENT_OU_ID variable with the value and rerun the script"
 
         PARENT_OU_ID=$(aws organizations list-roots --output json | jq -r '.Roots[].Id')
         echo -e "\nUsing ${YELLOW}${PARENT_OU_ID} ${NC} as parent to deploy the OUs for sandbox provisioner."
@@ -422,10 +423,11 @@ main() {
         if [ "$NUM_INSTANCES" -gt 1 ]; then
           echo "More than one instance ARNs and Identity Store IDs available:"
           aws sso-admin list-instances | jq -r '.Instances[] | "Instance ARN: \(.InstanceArn)\nIdentity Store ID: \(.IdentityStoreId)\n"'
+          echo ""
         fi
 
         # Display the instance ARN and Identity Store ID
-        echo -e "\nSSO instance ARN: ${RED}$SSO_INSTANCE_ARN ${NC}"
+        echo -e "SSO instance ARN: ${RED}$SSO_INSTANCE_ARN ${NC}"
         echo -e "Identity Store ID: ${RED}$SSO_IDENTITY_STORE_ID ${GREEN}\n"
         read -rp "Confirm the above SSO Instance Details. Do you want to continue? (y/n): " continue
         echo -e "${NC}"
@@ -506,16 +508,22 @@ EOL
     echo -e "${RED}----------------------------------------------------${NC}"
 
     find . -type f -iname "*.json" -exec bash -c "m4 -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    echo "json files updated"
+    sleep 2
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    echo "lambda python file updated"
+    sleep 2
     find . -type f -iname "*.txt" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    echo "txt file updated"
+    sleep 2
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-
+    echo "iam create user file updated"
+    sleep 2
     find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    echo "github workflows updated"
+    sleep 2
 
-    echo -e "${YELLOW}Completed substituting.${NC}"
+    echo -e "\n${GREEN}Substitution Complete.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy
     echo -e "\nValidating the policy files."
     validate_json_file "$policy_file"
