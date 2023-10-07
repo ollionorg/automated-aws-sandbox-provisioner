@@ -17,16 +17,6 @@ TRUST_POLICY_JSON='{
     }
   ]
 }'
-# Use the AWS CLI to list all existing VPCs and their CIDR blocks
-existing_vpcs=$(aws ec2 describe-vpcs --region "$AWS_DEFAULT_REGION" --query "Vpcs[].CidrBlock" --output json | jq -r '.[]')
-
-# Loop through the existing VPCs and check for conflicts
-for existing_cidr in $existing_vpcs; do
-    if [ "$existing_cidr" == "$SELF_HOSTED_RUNNER_VPC_CIDR" ]; then
-        echo "Error: CIDR block $SELF_HOSTED_RUNNER_VPC_CIDR conflicts with an existing VPC."
-        exit 1
-    fi
-done
 
 INSTANCE_AMI_ID=$(aws ec2 describe-images --region $AWS_DEFAULT_REGION --filters "Name=name,Values=al2023-ami-2023.2.20231002.0-kernel-6.1-x86_64" --output text --query 'Images[].ImageId')
 

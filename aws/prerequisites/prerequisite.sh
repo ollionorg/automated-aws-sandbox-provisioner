@@ -44,6 +44,21 @@ export TEAM_POOL_OUs=()
 
 sleep 1
 
+# Check if the user has administrator access
+if aws iam list-attached-user-policies --user-name "$(aws sts get-caller-identity --query "Arn" --output text | cut -d'/' -f2)" | grep -q "qAdministratorAccess"; then
+    echo "Starting with the script..."
+else
+    echo -e "${RED}WARNING: This script should be executed by an admin to set up the sandbox provisioner properly.${NC}"
+    echo -e "You must have ${YELLOW}AdministratorAccess${NC} to proceed."
+    echo "Do you want to proceed anyway? (y/n)"
+    read -r response
+    if [ "$response" != "y" ]; then
+        echo "Exiting..."
+        exit 1
+    else
+        echo "Proceeding..."
+    fi
+fi
 
 if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
@@ -134,6 +149,18 @@ self_hosted_runner_prerequisites_check() {
     else
         echo -e "\nself-hosted runner prerequisite check successful"
     fi
+
+    #list all existing VPCs and their CIDR blocks
+    existing_vpcs=$(aws ec2 describe-vpcs --region "$AWS_DEFAULT_REGION" --query "Vpcs[].CidrBlock" --output json | jq -r '.[]')
+
+    # Loop through the existing VPCs and check for conflicts
+    for existing_cidr in $existing_vpcs; do
+        if [ "$existing_cidr" == "$SELF_HOSTED_RUNNER_VPC_CIDR" ]; then
+            echo "Error: CIDR block $SELF_HOSTED_RUNNER_VPC_CIDR conflicts with an existing VPC."
+            exit 1
+        fi
+    done
+
 }
 
 # Function to print colored messages
