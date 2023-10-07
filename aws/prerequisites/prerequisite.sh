@@ -9,26 +9,20 @@ export role_name="SandboxAccountManagementRole"
 export lambda_policy_name="SandboxLambdaPolicy"
 export lambda_policy_file="sandbox_lambda_policy.json"
 export lambda_role_name="SandboxLambdaRole"
+export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
+export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
 export SECRET_NAME="sandbox/git"
 export SECRET_KEY_NAME="git_token"
-export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner"
 
 export AWS_DEFAULT_REGION="us-east-1"
-export SSO_ENABLED="true"
-export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
-export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
+export SSO_ENABLED="true"                               # set to true if your organization has SSO enabled and uses AWS IAM Identity center
+export REQUIRES_MANAGER_APPROVAl="true"                 # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
+export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
+export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
 export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                                       # e.g aws-admins@yourdomain.com
-export REQUIRES_MANAGER_APPROVAl="true"                                                   # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
-export APPROVAL_DURATION=8
+export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
+export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
 
-
-export TEAM_SANDBOX_OUs=()
-export TEAM_POOL_OUs=()
-# Define the team names and OU ids - refer OU prerequisites at aws/prerequisites/OU_PREREQUISITES.md
-export PARENT_OU_ID=""
-export TEAM_NAMES=("dev-team" "qa-team" "devops-team")          # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
-#export TEAM_SANDBOX_OUs=("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")   # e.g ("ou-6pbt-49d0vb50" "ou-6pbt-8yp0lf3e" "ou-6pbt-lkqhzc8a")  [ Please use the same syntax as example ]
-#export TEAM_POOL_OUs=("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")      # e.g ("ou-6pbt-xh364wnr" "ou-6pbt-4dguhonx" "ou-6pbt-pnwre24b")  [ Please use the same syntax as example ]
 
 
 # Define color codes
@@ -36,6 +30,8 @@ export GREEN='\033[0;32m'
 export RED='\033[0;31m'
 export YELLOW='\033[1;33m'
 export NC='\033[0m' # No Color
+export TEAM_SANDBOX_OUs=()
+export TEAM_POOL_OUs=()
 
 sleep 1
 
@@ -43,6 +39,25 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
   exit 1
 fi
+
+
+# Check if at least one team is defined
+if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
+    echo -e "${RED}\nError: At least one team must be defined.${NC}"
+        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
+
+    exit 1
+fi
+
+# Check if any team name is blank
+for team_name in "${TEAM_NAMES[@]}"; do
+    if [ -z "$team_name" ]; then
+        echo -e "${RED}\nError: Team name cannot be blank.${NC}"
+        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
+        exit 1
+    fi
+done
+
 
 #####################################################################################################
 create_ou() {
@@ -81,26 +96,6 @@ create_sandbox_ous() {
     done
     echo "-------------------------------"
 }
-#####################################################################################################
-
-# Check if at least one team is defined
-if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
-    echo -e "${RED}\nError: At least one team must be defined.${NC}"
-        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
-
-    exit 1
-fi
-
-# Check if any team name is blank
-for team_name in "${TEAM_NAMES[@]}"; do
-    if [ -z "$team_name" ]; then
-        echo -e "${RED}\nError: Team name cannot be blank.${NC}"
-        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
-        exit 1
-    fi
-done
-
-
 
 self_hosted_runner_prereq() {
     # Check the value of SELF_HOSTED_RUNNER_LABEL
@@ -346,13 +341,14 @@ policies will be attached to the respective roles.\n"
 
     fi
 
-    create_sandbox_ous
 
-    # Check if the number of teams matches the number of OU IDs
-    if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
-        echo "Error: The number of teams does not match the number of OU IDs."
-        exit 1
-    fi
+
+#TODO Remove
+#    # Check if the number of teams matches the number of OU IDs
+#    if [[ ${#TEAM_NAMES[@]} -ne ${#TEAM_SANDBOX_OUs[@]} || ${#TEAM_NAMES[@]} -ne ${#TEAM_POOL_OUs[@]} ]]; then
+#        echo "Error: The number of teams does not match the number of OU IDs."
+#        exit 1
+#    fi
 
 
     # Check if SSO is enabled
@@ -420,6 +416,9 @@ policies will be attached to the respective roles.\n"
       find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
+    # Create the required OUs for the sandbox provisioner using the teams
+    create_sandbox_ous
+
     TEAM_OU_MAPPING_OUTPUT="../provision/team_ou_select.sh"
 
     # Generate the case statements for team and ou mapping dynamically based on the arrays
@@ -444,7 +443,7 @@ EOL
     done
 
 
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=$TEAM_OPTIONS -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${role_name} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
 
     exit 0
 
