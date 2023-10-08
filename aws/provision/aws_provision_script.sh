@@ -172,24 +172,15 @@ if [[ $SSO_ENABLED = "true" ]]; then
 else
     echo "-------------------------------"
     echo "Configuring creds for the sandbox account"
-    CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${NEW_ACCOUNT_ID}:role/${ORG_MANAGEMENT_ROLE}" --role-session-name "SandBox_IAM_User_Configuration_Session" --duration-seconds 900 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+    CREDS=($(aws sts assume-role --role-arn "arn:aws:iam::${NEW_ACCOUNT_ID}:role/${ORG_MANAGEMENT_ROLE}" --role-session-name "SandBox_IAM_User_Configuration_Session" --duration-seconds 900 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text))
     unset AWS_ACCESS_KEY_ID
     unset AWS_SECRET_ACCESS_KEY
     unset AWS_SESSION_TOKEN
 
-    AWS_ACCESS_KEY_ID=${CREDS[0]}
-    echo "::add-mask::$AWS_ACCESS_KEY_ID"
-    echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
-    AWS_SECRET_ACCESS_KEY=${CREDS[1]}
-    echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
-    echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
-    AWS_SESSION_TOKEN=${CREDS[2]}
-    echo "::add-mask::$AWS_SESSION_TOKEN"
-    echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+    export AWS_ACCESS_KEY_ID=${CREDS[0]}
+    export AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+    export AWS_SESSION_TOKEN=${CREDS[2]}
 
-    echo "-------------------------------"
-    echo "Adding IAM User/Users to the account"
-    echo "-------------------------------"
     bash create_iam_user.sh ${USER_EMAIL}
     #IAM user for additional emails
     if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then

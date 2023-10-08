@@ -1,5 +1,5 @@
 name: 'AWS Sandbox Provisioner'
-run-name: AWS Sandbox - ${{ inputs.TEAM }} by ${{ inputs.EMAIL }} for ${{ inputs.PURPOSE }} for ${{ inputs.DURATION }} Hours
+run-name: AWS Sandbox triggered by ${{ inputs.EMAIL }} for ${{ inputs.PURPOSE }} for ${{ inputs.DURATION }} Hours [${{ inputs.TEAM }}]
 
 on:
   workflow_dispatch:
