@@ -1,5 +1,15 @@
 #!/bin/bash
 
+
+###################################################
+# Self-Hosted Runner Setup Script
+###################################################
+
+# Purpose:
+# This Bash script simplifies the setup of a self-hosted GitHub runner on an Amazon EC2 instance.
+# The runner allows you to execute GitHub Actions workflows within your own infrastructure.
+
+
 echo -e "${RED}----------------------------------------------------${NC}"
 echo -e "         Starting Self Hosted Runner Setup"
 echo -e "${RED}----------------------------------------------------${NC}"

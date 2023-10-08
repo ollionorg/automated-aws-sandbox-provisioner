@@ -62,9 +62,3 @@ unset AWS_SECRET_ACCESS_KEY
 unset AWS_SESSION_TOKEN
 
 echo "Script execution completed."
-
-
-curl -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github.v3+json" \
-  "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/actions/runners/registration-token" | jq -r '.token'

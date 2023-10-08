@@ -207,8 +207,10 @@ create_aws_policy() {
     local policy_name="$1"
     local policy_file="$2"
 
-    if ! aws iam create-policy --policy-name "$policy_name" --policy-document "file://$policy_file"; then
-        print_message "Failed to create the policy in AWS Management Account." "$RED"
+    POLICY_ID=$(aws iam create-policy --policy-name "$policy_name" --policy-document "file://$policy_file" --query 'Policy.PolicyId' --output text)
+
+    if [[ -z $POLICY_ID ]]; then
+        print_message "Failed to create the policy $policy_name in AWS Management Account." "$RED"
         exit 1
     fi
 
@@ -511,15 +513,15 @@ EOL
     echo "json files updated"
     sleep 2
     find ../provision -type f -iname "*.py" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} -D REPLACE_SECRET_KEY_NAME_HERE=${SECRET_KEY_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_SECRET_NAME_HERE=${SECRET_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-    echo "lambda python file updated"
+    echo "python file updated"
     sleep 2
     find . -type f -iname "*.txt" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "txt file updated"
     sleep 2
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-    echo "iam create user file updated"
+    echo "shell script file updated"
     sleep 2
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=/"$TEAM_OPTIONS/" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "github workflows updated"
     sleep 2
 

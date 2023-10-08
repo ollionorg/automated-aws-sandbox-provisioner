@@ -1,16 +1,89 @@
-# AWS Sandbox Provisioner [WIP]
+# Temporary Sandbox Account Provisioner
 
-The AWS Sandbox Provisioner is a tool developed to provision time-based AWS sandbox accounts within an organization. It supports multiple teams within the organization and maintains a pool for each team to provision accounts from. The automation also includes cleanup of sandbox accounts using `aws-nuke` after the user-selected time has elapsed. All the steps are automated using GitHub Actions. An approval step can also be integrated if the organization requires approval for longer access durations.
+Welcome to the Temporary Sandbox Account Provisioner documentation! This document provides a comprehensive overview of our solution for creating temporary, time-based sandbox accounts for individuals and teams. We have designed this provisioner to address a range of challenges related to cost management, security, and ease of account management within organizations.
 
-## Overview
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Key Benefits](#key-benefits)
+3. [Use Cases](#use-cases)
+4. [Features](#features)
+5. [Getting Started](#getting-started)
+6. [Documentation](#documentation)
+7. [FAQ](#faq)
+8. [Support](#support)
+9. [Contributing](#contributing)
+10. [License](#license)
 
-The AWS Sandbox Provisioner automates the process of provisioning and managing temporary AWS sandbox accounts. It follows these key steps:
+## Introduction
 
-1. **Account Provisioning:** When a user requests a sandbox account, the tool provisions an account from the designated pool for the user's team. The user specifies the purpose, duration, and optionally additional user emails.
+The Temporary Sandbox Account Provisioner is a solution designed to automate the creation and management of temporary sandbox accounts for users or teams within your organization. These sandbox accounts are time-limited and serve as dedicated environments for various purposes such as proof of concept (POC), testing, experimentation, and more.
 
-2. **Ticket Creation and Approval:** If required (based on the specified duration), an approval step is triggered. The tool creates a helpdesk ticket and, if necessary, waits for approval from designated approvers. The ticket includes information about the requested access.
+## Key Benefits
 
-3. **Account Cleanup:** After the specified access duration has elapsed, the tool triggers an account cleanup process using `aws-nuke`. All resources in the sandbox account are removed to ensure proper cleanup.
+Our provisioner offers several key benefits for organizations:
+
+### Cost Management
+- **Cost Control**: The provisioner helps control costs by automatically cleaning up sandbox accounts after a specified duration. This prevents the unnecessary accumulation of resources and associated costs.
+
+### Security
+- **Reduced Attack Surface**: By isolating sandbox accounts, it reduces the attack surface, limiting the potential impact of security breaches or vulnerabilities.
+
+### Management
+- **Automation**: The solution is completely automated, simplifying the process of account creation, assignment, and cleanup.
+- **Reusability**: It allows for the reuse of sandbox accounts from a pool, reducing administrative overhead.
+
+## Use Cases
+
+The Temporary Sandbox Account Provisioner is a versatile tool that can address a variety of use cases within your organization:
+
+- **Proof of Concept (POC)**: Provide dedicated environments for POCs without impacting production resources.
+- **Testing and Quality Assurance**: Enable testing and QA teams to work in isolated environments.
+- **Training and Learning**: Create temporary accounts for training purposes.
+- **Development and Experimentation**: Facilitate experimentation and development in isolated sandboxes.
+
+## Features
+
+Our provisioner offers a range of features to meet your organization's needs:
+
+- **Automated Account Creation**: Easily create sandbox accounts with predefined configurations.
+- **Time-Based Expiry**: Set a duration for sandbox accounts, ensuring automatic cleanup.
+- **Pool of Reusable Accounts**: Maintain a pool of sandbox accounts for efficient resource allocation.
+- **Security Isolation**: Isolate sandbox accounts from production resources to enhance security.
+- **Detailed Logging**: Keep track of account provisioning and cleanup activities for auditing.
+
+## Getting Started
+
+To get started with the Temporary Sandbox Account Provisioner, please refer to our [Getting Started Guide](getting-started.md). This guide will walk you through the setup and configuration process, helping you quickly deploy the solution within your organization.
+
+## Documentation
+
+Our documentation is organized into the following sections:
+
+- [Installation](installation.md): Instructions for installing and configuring the provisioner.
+- [Usage](usage.md): Detailed usage guidelines and examples.
+- [Configuration](configuration.md): Configure the provisioner to align with your organization's requirements.
+- [Troubleshooting](troubleshooting.md): Common issues and solutions.
+- [Advanced Features](advanced-features.md): Explore advanced capabilities and customization options.
+
+## FAQ
+
+Have questions? Check out our [FAQ section](faq.md) for answers to common queries and concerns.
+
+## Support
+
+For technical support or assistance, please contact our support team at support@example.com.
+
+## Contributing
+
+We welcome contributions from the community! If you have suggestions, bug reports, or would like to contribute code, please review our [Contributing Guidelines](contributing.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute it as needed within your organization.
+
+Thank you for choosing the Temporary Sandbox Account Provisioner. We hope this solution helps streamline your organization's workflows and enhances your resource management capabilities.
+
+################################
 
 ## Workflow
 
