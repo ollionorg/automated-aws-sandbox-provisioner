@@ -23,10 +23,10 @@ export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
 export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
 export INSTANCE_TYPE="t2.micro"
 
-export AWS_DEFAULT_REGION=""                            # e.g "us-east-1" Identity Center default region used by management account
-export AWS_ADMINS_EMAIL=""                              # e.g "aws-admins@yourdomain.com" AWS admins DL required during sandbox account setup
-export SSO_ENABLED=""                                   # set to true if your organization has SSO enabled and uses AWS IAM Identity center or set to false
-export TEAM_NAMES=("")                                  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
+export AWS_DEFAULT_REGION="us-east-1"                            # e.g "us-east-1" Identity Center default region used by management account
+export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                              # e.g "aws-admins@yourdomain.com" AWS admins DL required during sandbox account setup
+export SSO_ENABLED="true"                                   # set to true if your organization has SSO enabled and uses AWS IAM Identity center or set to false
+export TEAM_NAMES=("dev-team")                                  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
 export REQUIRES_MANAGER_APPROVAL="true"                 # set to true if approval is required for sandbox account of duration more than APPROVAL_DURATION hours duration
 export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
 export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
@@ -44,23 +44,7 @@ export NC='\033[0m' # No Color
 export TEAM_SANDBOX_OUs=() # Keep blank
 export TEAM_POOL_OUs=() # Keep blank
 
-sleep 1
-
-# Check if the user has administrator access
-if aws iam list-attached-user-policies --user-name "$(aws sts get-caller-identity --query "Arn" --output text | cut -d'/' -f2)" | grep -q "AdministratorAccess"; then
-    echo "Starting with the script..."
-else
-    echo -e "${RED}WARNING: This script should be executed by an admin to set up the sandbox provisioner properly.${NC}"
-    echo -e "You must have ${YELLOW}AdministratorAccess${NC} to proceed."
-    echo "Do you want to proceed anyway? (y/n)"
-    read -r response
-    if [ "$response" != "y" ]; then
-        echo "Exiting..."
-        exit 1
-    else
-        echo "Proceeding..."
-    fi
-fi
+##########################################################
 
 if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
@@ -69,13 +53,13 @@ fi
 
 # Check if AWS_DEFAULT_REGION is empty or blank
 if [ -z "$AWS_DEFAULT_REGION" ]; then
-  echo "AWS_DEFAULT_REGION is required. Please set the variable before running this script."
+  echo -e "${RED}\nAWS_DEFAULT_REGION is required. Please set the variable before running this script.${NC}"
   exit 1
 fi
 
 if [ -z "$SSO_ENABLED" ]; then
-  echo "SSO_ENABLED flag value is required. Please set the variable before running this script."
-  echo "If not applicable set the value to ${YELLOW}false${NC}"
+  echo -e "${RED}SSO_ENABLED flag value is required. Please set the variable before running this script.${NC}"
+  echo -e "If not applicable set the value to ${YELLOW}false${NC}"
   exit 1
 fi
 
@@ -96,9 +80,6 @@ else
         exit 0
     fi
 fi
-
-
-##########################################################
 
 if [[ $ENABLE_SLACK_NOTIFICATION == "true" ]]; then
     echo -e "You have opted to enable slack notification in the workflow"
@@ -133,7 +114,8 @@ fi
 for team_name in "${TEAM_NAMES[@]}"; do
     if [ -z "$team_name" ]; then
         echo -e "${RED}\nError: Team name cannot be blank.${NC}"
-        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
+        echo -e "\ne.g ${YELLOW}export TEAM_NAMES=(\"dev-team\" \"qa-team\" \"devops-team\")${NC}\n"
+        echo -e "At least one team name is expected here so as to create the OU for accounts and pool"
         exit 1
     fi
 done
@@ -143,7 +125,27 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+exit 0
 #####################################################################################################
+
+check_admin_access() {
+    # Check if the user has administrator access
+    if aws iam list-attached-user-policies --user-name "$(aws sts get-caller-identity --query "Arn" --output text | cut -d'/' -f2)" | grep -q "AdministratorAccess"; then
+        echo "Starting with the script..."
+    else
+        echo -e "${RED}WARNING: This script should be executed by an admin to set up the sandbox provisioner properly.${NC}"
+        echo -e "You must have ${YELLOW}AdministratorAccess${NC} to proceed."
+        echo "Do you want to proceed anyway? (y/n)"
+        read -r response
+        if [ "$response" != "y" ]; then
+            echo "Exiting..."
+            exit 1
+        else
+            echo "Proceeding..."
+        fi
+    fi
+}
+
 create_ou() {
     local ou_name="$1"
     local parent_ou="$2"
@@ -158,6 +160,7 @@ add_ou_to_array() {
     TEAM_SANDBOX_OUs+=("$team_ou")
     TEAM_POOL_OUs+=("$team_pool_ou")
 }
+
 
 create_sandbox_ous() {
     echo "-------------------------------"
@@ -454,6 +457,8 @@ main() {
     check_aws_cli
     # Check AWS CLI configuration with valid credentials
     check_aws_cli_configuration
+    # Check admin access
+    check_admin_access
     #runner prerequisite check
     self_hosted_runner_prerequisites_check
 
