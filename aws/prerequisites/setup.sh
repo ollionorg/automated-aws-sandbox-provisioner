@@ -445,6 +445,8 @@ main() {
         exit 1
     fi
 
+    echo -e "\n---------------------------------------------------------------\n"
+
     print_message "Checking prerequisites..." "$GREEN"
     # Check if the AWS CLI is installed
     check_aws_cli
