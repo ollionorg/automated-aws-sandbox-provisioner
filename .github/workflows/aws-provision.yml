@@ -131,7 +131,7 @@ jobs:
       - name: "Create helpdesk ticket"
         if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' && env.ENABLE_HELPDESK_NOTIFICATION }}
         env:
-          EMAIL: ${{ needs.setup-job.outputs.ACTOR_EMAIL }}
+          EMAIL: ${{ inputs.EMAIL }}
           DURATION: ${{ inputs.DURATION }}
           CLOUD: "AWS"
           REASON: ${{ inputs.PURPOSE }}
@@ -250,7 +250,7 @@ jobs:
       - name: "Provision AWS Sandbox account"
         working-directory: aws/provision/
         env:
-          USER_EMAIL: ${{ needs.setup-job.outputs.ACTOR_EMAIL }}
+          USER_EMAIL: ${{ inputs.EMAIL }}
           ADDITIONAL_USER_EMAILS: ${{ inputs.ADDITIONAL_USER_EMAILS }}
           ACCOUNT_POOL_OU: ${{ needs.setup-job.outputs.POOL_OU_ID }}
           SANDBOX_OU_ID: ${{ needs.setup-job.outputs.SANDBOX_OU_ID }}

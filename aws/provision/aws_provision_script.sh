@@ -31,8 +31,9 @@ NEW_ACCOUNT_ID="NA"
 function create_account() {
     #Account name format
     export SUFFIX=$((RANDOM % 900000 + 100000))
-    export ACCOUNT_NAME=$(echo "${TEAM}_SANDBOX_${SUFFIX}" | awk '{print tolower($0)}')
-
+    export ACCOUNT_NAME=$(echo "${TEAM}_sandbox_${SUFFIX}" | awk '{print tolower($0)}' | tr '-' '_')
+    export EMAIL_DOMAIN="${ADMIN_EMAIL#*@}"
+    export ADMIN_EMAIL_PRINCIPAL="${ADMIN_EMAIL%%@*}"
     banner "Creating New Account"
 
     #Create account
@@ -42,7 +43,7 @@ function create_account() {
 
     CREATE_REQUEST_ID=$(
       aws organizations create-account \
-        --email "${ADMIN_EMAIL}+${ACCOUNT_NAME}@${EMAIL_DOMAIN}" \
+        --email "${ADMIN_EMAIL_PRINCIPAL}+${ACCOUNT_NAME}@${EMAIL_DOMAIN}" \
         --account-name "${ACCOUNT_NAME}" \
         --region ${AWS_REGION} \
         --iam-user-access-to-billing ALLOW \
@@ -81,11 +82,11 @@ function create_account() {
 banner "Starting the Job"
 
 #Get the required ARNs
-if [ -z $(aws iam list-roles --query 'Roles[?RoleName==`account_management_lambda_role`].Arn' --output text) ]; then
+if [ -z $(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_LAMBDA_ROLE_HERE`].Arn' --output text) ]; then
   echo -e "\n$(date) - Role not available. \nPlease follow the prerequisite doc present under aws/prerequisite/admin_setup.sh and create the required role"
   exit 1
 else
-  export LAMBDA_ROLE=$(aws iam list-roles --query 'Roles[?RoleName==`account_management_lambda_role`].Arn' --output text)
+  export LAMBDA_ROLE=$(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_LAMBDA_ROLE_HERE`].Arn' --output text)
   echo -e "\n$(date) - LAMBDA_ROLE: $LAMBDA_ROLE will be used for lambda deployment"
 fi
 
@@ -95,16 +96,15 @@ if [[ -z $POOL_ACCOUNT ]]; then
     create_account
 else
     NEW_ACCOUNT_ID=$POOL_ACCOUNT
+    #Move the account from ACCOUNT_POOL_OU to Sandbox OU
+    echo -e "$(date) - Moving $NEW_ACCOUNT_ID from Pool OU $ACCOUNT_POOL_OU to Sandbox OU $SANDBOX_OU_ID\n"
+    aws organizations move-account \
+      --account-id $NEW_ACCOUNT_ID \
+      --source-parent-id $ACCOUNT_POOL_OU \
+      --destination-parent-id $SANDBOX_OU_ID
 fi
 
 echo -e "NEW_ACCOUNT_ID     =    $NEW_ACCOUNT_ID\n\n"
-
-#Move the account from ACCOUNT_POOL_OU to Sandbox OU
-echo -e "$(date) - Moving $NEW_ACCOUNT_ID from Pool OU $ACCOUNT_POOL_OU to Sandbox OU $SANDBOX_OU_ID\n"
-aws organizations move-account \
-  --account-id $NEW_ACCOUNT_ID \
-  --source-parent-id $ACCOUNT_POOL_OU \
-  --destination-parent-id $SANDBOX_OU_ID
 
 ####################################################
 #SSO assignment function
@@ -195,7 +195,7 @@ if [[ -z $TICKET_ID ]]; then
 fi
 
 #substitute the new account created in the python script
-awk '{sub(/REPLACE_ACCOUNT_ID/,"'${NEW_ACCOUNT_ID}'"); print}' aws/provision/lambda.py > lambda_function.py
+awk '{sub(/REPLACE_ACCOUNT_ID/,"'${NEW_ACCOUNT_ID}'"); print}' lambda.py > lambda_function.py
 
 sed -i 's/REPLACE_EMAIL_HERE/'${USER_EMAIL}'/' lambda_function.py
 sed -i 's/REPLACE_TICKET_HERE/'${TICKET_ID}'/' lambda_function.py
@@ -289,3 +289,7 @@ echo "Temporary account provisioned : ${NEW_ACCOUNT_ID}"
 echo "SSO for user ${USER_EMAIL} configured with ADMINISTRATOR access"
 echo "Created schedule for revoking the access after ${DURATION} hours"
 
+echo "AWS Sandbox Provisioned :rocket:" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "- Temporary account id : ${NEW_ACCOUNT_ID}" >> $GITHUB_STEP_SUMMARY
+echo "- Duration of access : ${DURATION} hours" >> $GITHUB_STEP_SUMMARY
