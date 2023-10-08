@@ -200,15 +200,9 @@ else
     unset AWS_SECRET_ACCESS_KEY
     unset AWS_SESSION_TOKEN
     CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${MANAGEMENT_ACCOUNT_ID}:role/${MANAGEMENT_ROLE_NAME}" --role-session-name "${MANAGEMENT_ROLE_NAME}" --duration-seconds 1000 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
-    AWS_ACCESS_KEY_ID=${CREDS[0]}
-    echo "::add-mask::$AWS_ACCESS_KEY_ID"
-    echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
-    AWS_SECRET_ACCESS_KEY=${CREDS[1]}
-    echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
-    echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
-    AWS_SESSION_TOKEN=${CREDS[2]}
-    echo "::add-mask::$AWS_SESSION_TOKEN"
-    echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+    export AWS_ACCESS_KEY_ID=${CREDS[0]}
+    export AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+    export AWS_SESSION_TOKEN=${CREDS[2]}
     echo "-------------------------------"
 fi
 
