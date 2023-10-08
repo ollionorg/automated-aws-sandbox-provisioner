@@ -18,21 +18,21 @@ export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
 export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
 export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
 export SSH_USER="ec2-user"
-
-
-export AWS_DEFAULT_REGION="us-east-1"
-export SSO_ENABLED="true"                               # set to true if your organization has SSO enabled and uses AWS IAM Identity center
-export REQUIRES_MANAGER_APPROVAl="true"                 # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
-export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
-export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
-export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"     # e.g aws-admins@yourdomain.com
-export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
-export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
-export FRESHDESK_URL=""                                 # Leave blank if not applicable. In this case freshdesk APIs are used. Provide freshdesk api url like 'https://your_freshdesk_domain.freshdesk.com'
-export ENABLE_SLACK_NOTIFICATION=""
 export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
 export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
 export INSTANCE_TYPE="t2.micro"
+
+export AWS_DEFAULT_REGION=""                            # e.g "us-east-1" Identity Center default region used by management account
+export AWS_ADMINS_EMAIL=""                              # e.g "aws-admins@yourdomain.com" AWS admins DL required during sandbox account setup
+export SSO_ENABLED=""                                   # set to true if your organization has SSO enabled and uses AWS IAM Identity center or set to false
+export TEAM_NAMES=("")                                  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
+export REQUIRES_MANAGER_APPROVAL="true"                 # set to true if approval is required for sandbox account of duration more than APPROVAL_DURATION hours duration
+export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
+export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
+export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
+export FRESHDESK_URL=""                                 # Leave blank if not applicable. In this case freshdesk APIs are used for ticket creation and updates. Provide freshdesk api url like 'https://your_freshdesk_domain.freshdesk.com'
+export ENABLE_SLACK_NOTIFICATION=""                     # Set to true to enable slack notification in the workflows. Defaults to false
+
 
 
 # Define color codes
@@ -63,6 +63,18 @@ fi
 
 if [[ -z $AWS_ADMINS_EMAIL ]]; then
   echo -e "${RED}\nPlease provide aws admins DL or a admin user email ${YELLOW}[AWS_ADMINS_EMAIL] ${GREEN}e.g aws-admins@yourdomain.com${NC}"
+  exit 1
+fi
+
+# Check if AWS_DEFAULT_REGION is empty or blank
+if [ -z "$AWS_DEFAULT_REGION" ]; then
+  echo "AWS_DEFAULT_REGION is required. Please set the variable before running this script."
+  exit 1
+fi
+
+if [ -z "$SSO_ENABLED" ]; then
+  echo "SSO_ENABLED flag value is required. Please set the variable before running this script."
+  echo "If not applicable set the value to ${YELLOW}false${NC}"
   exit 1
 fi
 
@@ -561,7 +573,7 @@ EOL
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "script file updated"
     sleep 2
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAL -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "github workflows updated"
     sleep 2
 
