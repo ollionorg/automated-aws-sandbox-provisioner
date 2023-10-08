@@ -359,17 +359,16 @@ attach_policy_to_role() {
 }
 
 # Function to create an AWS IAM Role and attach the policy to it
-create_aws_role() {
-    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
-    local policy_name="$2"
+create_management_role() {
     # Define your JSON policy in a variable
-    local MGMT_ROLE_POLICY_JSON='{
+    local MGMT_ROLE_POLICY_JSON
+    MGMT_ROLE_POLICY_JSON='{
       "Version": "2012-10-17",
       "Statement": [
         {
           "Effect": "Allow",
           "Principal": {
-            "Service": "organizations.amazonaws.com"
+            "AWS": "arn:aws:iam::'$(aws sts get-caller-identity --query "Account" --output text)':role/'${GITHUB_RUNNER_ROLE_NAME}'"
           },
           "Action": "sts:AssumeRole"
         }
@@ -389,6 +388,35 @@ create_aws_role() {
     fi
 }
 
+create_lambda_role() {
+    # Define your JSON policy in a variable
+    local LAMBDA_ROLE_POLICY_JSON='{
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "lambda.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    }'
+
+    create_aws_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+
+    # Create the IAM role with the policy
+    if ! aws iam create-role --role-name "$lambda_role_name" --assume-role-policy-document "$LAMBDA_ROLE_POLICY_JSON" &>/dev/null; then
+        print_message "Failed to create the IAM Role: '$lambda_role_name'" "$RED"
+        exit 1
+    fi
+
+    if check_policy_attachment "$lambda_role_name" "$LAMBDA_POLICY_NAME"; then
+        echo "Using existing IAM Role: '$lambda_role_name'"
+    else
+        attach_policy_to_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+    fi
+}
 
 create_aws_secret() {
     local secret_name="$1"
@@ -619,9 +647,6 @@ EOL
     find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAL -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "github workflows updated"
     sleep 2
-    find . -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_GITHUB_RUNNER_ROLE_NAME=${GITHUB_RUNNER_ROLE_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-    echo "self hosted runner script updated"
-    sleep 2
 
     echo -e "\n${GREEN}Substitution Complete.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy
@@ -642,7 +667,7 @@ EOL
 
     # Check if the role already exists and prompt for reuse
     if ! check_existing_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"; then
-        create_aws_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"
+        create_management_role
     fi
 
     # Check if the lambda policy already exists and prompt for reuse
@@ -655,7 +680,7 @@ EOL
 
     # Check if the role already exists and prompt for reuse
     if ! check_existing_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"; then
-        create_aws_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+        create_lambda_role
     fi
 
     # Create the secret in AWS Secrets Manager
