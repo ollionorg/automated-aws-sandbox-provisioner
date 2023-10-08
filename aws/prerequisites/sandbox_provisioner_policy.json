@@ -15,6 +15,7 @@
         "iam:ListRoles",
         "organizations:CreateAccount",
         "organizations:ListAccountsForParent",
+        "organizations:ListCreateAccountStatus",
         "sso:ListAccountAssignments",
         "iam:PassRole",
         "organizations:ListAccounts",
