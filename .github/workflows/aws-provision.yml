@@ -1,28 +1,21 @@
 name: 'AWS Sandbox Provisioner'
-# The run name will include the selected team, GitHub actor, purpose, and duration for the sandbox.
 run-name: AWS Sandbox - ${{ inputs.TEAM }} by ${{ inputs.EMAIL }} for ${{ inputs.PURPOSE }} for ${{ inputs.DURATION }} Hours
-
-
-# Teams are commonly employed to effectively organize sandbox accounts into distinct organizational units (OUs)
-# within the AWS (Amazon Web Services) environment. This practice helps streamline resource management,
-# enhances security measures, and facilitates efficient collaboration among various stakeholders.
 
 on:
   workflow_dispatch:
     inputs:
       EMAIL:
-        description: Input email id
+        description: "Enter Email ID of the user"
         type: string
         required: true
       TEAM:
-        description: "Select team"
+        description: "Select your team from the dropdown"
         type: choice
         required: true
         options:
           REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS
-
       DURATION:
-        description: "Duration of access in Hours "
+        description: "Select Duration of access in Hours "
         type: choice
         required: true
         options:
@@ -40,10 +33,12 @@ on:
         required: true
         default: "POC on "
       ADDITIONAL_USER_EMAILS:
-        description: Enter additional user emails, e.g email1,email2,email3 (Optional)
+        description: "Enter additional user emails, e.g email1,email2,email3 [ Optional ]"
+        type: string
+        required: false
 
 env:
-  REQUIRES_APPROVAL: "REPLACE_REQUIRES_APPROVAl_PLACEHOLDER"                                       # Create issue for approval in GitHub Actions
+  REQUIRES_APPROVAL: REPLACE_REQUIRES_APPROVAl_PLACEHOLDER                                       # Create issue for approval in GitHub Actions
   APPROVAL_HOURS: REPLACE_APPROVAL_HOURS_PLACEHOLDER                                         # Approval required if the requested Hours is greater than APPROVAL_HOURS value
   SSO_ENABLED: "REPLACE_SSO_ENABLED_FLAG_HERE"
   SSO_INSTANCE_ARN: "INSTANCE_ARN_PLACEHOLDER"                 #"arn:aws:sso:::instance/ssoins-72230e0790e87c67"
@@ -53,8 +48,10 @@ env:
   MANAGEMENT_ACCOUNT_ID: "REPLACE_AWS_MANAGEMENT_ACCOUNT"
   MANAGEMENT_ROLE_NAME: "REPLACE_MANAGEMENT_ROLE_HERE"
   AWS_REGION: "REPLACE_AWS_DEFAULT_REGION"
-  HELPDESK_URL: 'https://cloudcover-helpdesk.freshdesk.com'
-  SANDBOX_SLACK_WEBHOOK: ${{ secrets.webhook }}
+  ENABLE_HELPDESK_NOTIFICATION: REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER
+  HELPDESK_URL: "REPLACE_HELPDESK_URL_PLACEHOLDER"
+  ENABLE_SLACK_NOTIFICATION: REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER
+  SANDBOX_SLACK_WEBHOOK: ${{ secrets.SANDBOX_SLACK_WEBHOOK }}
 
 defaults:
   run:
@@ -68,22 +65,22 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      SKIP: ${{ steps.create_flag.outputs.SKIP }}
+      REQ_APPROVAL: ${{ steps.create_flag.outputs.REQ_APPROVAL }}
       SANDBOX_OU_ID: ${{ steps.ou_select.outputs.SANDBOX_OU_ID }}
       POOL_OU_ID: ${{ steps.ou_select.outputs.POOL_OU_ID }}
       ACTOR_EMAIL: ${{ steps.actor.outputs.ACTOR_EMAIL }}
     steps:
-      - name: "Clone Git Repository"
+      - name: "Clone the GitHub Repository"
         uses: actions/checkout@v3
 
-      - name: "Create SKIP flag and install aws cli"
+      - name: "Create REQ_APPROVAL flag"
         if: ${{ env.REQUIRES_APPROVAL }}
         id: "create_flag"
         run: |
-          if [ $(echo ${{ inputs.DURATION }} | awk -F' ' '{ print $1 }') -le 8 ]; then
-              echo "SKIP=true" >> $GITHUB_OUTPUT
+          if [ $(echo ${{ inputs.DURATION }} | awk -F' ' '{ print $1 }') -gt ${{ env.APPROVAL_HOURS }} ]; then
+              echo "REQ_APPROVAL=true" >> $GITHUB_OUTPUT
           else
-              echo "SKIP=false" >> $GITHUB_OUTPUT
+              echo "REQ_APPROVAL=false" >> $GITHUB_OUTPUT
           fi
 
       - name: "Select Pool OU and Sandbox OU according to team"
@@ -95,8 +92,8 @@ jobs:
           bash team_ou_select.sh
 
       - name: "Workflow Status Slack Notification"
-        if: failure()
-        uses: cldcvr/slack-notify-action@main
+        if: ${{ failure() && env.ENABLE_SLACK_NOTIFICATION }}
+        uses: vishal-kapse/slack-notify-action@v1.0
         with:
           message: "AWS Sandbox provisioning - Init job has failed"
           status: ${{ job.status }}
@@ -112,19 +109,8 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: "Load secrets from 1Password"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
-        uses: 1password/load-secrets-action@v1.3.1
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          GIT_TOKEN: op://cldcvr-admins-common-vault/GIT_NUKE_CLOUD_TASK/credential
-          FRESHDESK_API: op://cldcvr-admins-common-vault/FRESHDESK_TOKEN_AUDIT_CLDCVR/credential
-          SANDBOX_SLACK_WEBHOOK: op://cldcvr-sandbox-provisioner-vault/SANDBOX_SLACK_WEBHOOK/password
-
       - name: "Create helpdesk ticket"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
+        if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' && env.ENABLE_HELPDESK_NOTIFICATION }}
         env:
           EMAIL: ${{ needs.setup-job.outputs.ACTOR_EMAIL }}
           DURATION: ${{ inputs.DURATION }}
@@ -140,24 +126,24 @@ jobs:
           echo "ticket=$TICKET_ID" >> $GITHUB_OUTPUT
         id: ticket
 
-      - name: "Manual approval from leads on GitHub issue"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
-        uses: trstringer/manual-approval@v1.7.0
+      - name: "Manual approval from leads/approvers on GitHub Issue"
+        if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' }}
+        uses: trstringer/manual-approval@v1.9.0
         timeout-minutes: 60
         id: approval
         with:
           secret: ${{ env.GIT_TOKEN }}
-          approvers: sandbox-approvers
+          approvers: sandbox-approvers #TODO update team here
           minimum-approvals: 1
-          issue-title: "${{ needs.setup-job.outputs.ACTOR_EMAIL }} want to have access to a AWS Sandbox account for ${{ inputs.DURATION }} for ${{ inputs.PURPOSE }}"
+          issue-title: "${{ inputs.EMAIL }} wants to have access to a AWS Sandbox account for ${{ inputs.DURATION }} for ${{ inputs.PURPOSE }}"
 
       - name: "Notify about decline of request"
-        if: failure() && steps.approval.outcome == 'failure'
+        if: ${{ failure() && steps.approval.outcome == 'failure' && env.ENABLE_HELPDESK_NOTIFICATION }}
         run: |
           curl -v -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Looks like, your request was not approved. <br> We could not proceed. Sorry for the inconvinence caused. <br><br> Closing the ticket."}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
           curl -v -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X PUT -d '{"priority":1,"status":5,"custom_fields":{"cf_status_reason":"Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}'
-      - name: "Get the approver"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
+      - name: "Get approver from GitHUb Issue comment"
+        if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' }}
         id: approver
         env:
           BOT: "cldcvr-audit"
@@ -176,7 +162,7 @@ jobs:
 
           echo "approver=$APPROVER" >> $GITHUB_OUTPUT
       - name: "Add reply on ticket about approval and progress"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
+        if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' }}
         run: |
 
           APPROVER=$(curl -s \
@@ -195,7 +181,7 @@ jobs:
           curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d "$json_data" '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
       - name: "Workflow Status Slack Notification"
         if: ${{ failure() || cancelled() }}
-        uses: cldcvr/slack-notify-action@main
+        uses: vishal-kapse/slack-notify-action@v1.0
         with:
           message: "AWS sandbox provisioning - Ticket creation and approval job has failed"
           status: ${{ job.status }}
@@ -222,16 +208,7 @@ jobs:
           rm -rf /tmp/aws/
 
       - name: "Clone Git Repo"
-        uses: actions/checkout@v2.3.5
-
-      - name: "Load secrets from 1Password"
-        uses: 1password/load-secrets-action@v1.3.1
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          FRESHDESK_API: op://cldcvr-admins-common-vault/FRESHDESK_TOKEN_AUDIT_CLDCVR/credential
-          SANDBOX_SLACK_WEBHOOK: op://cldcvr-sandbox-provisioner-vault/SANDBOX_SLACK_WEBHOOK/password
+        uses: actions/checkout@v3
 
       - name: "Configure AWS credentials for ${{ env.MANAGEMENT_ACCOUNT_ID }} account"
         run: |
@@ -263,14 +240,14 @@ jobs:
           bash aws_provision_script.sh
 
       - name: "Add account provisioned comment"
-        if: ${{ needs.setup-job.outputs.SKIP == 'false' }}
+        if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' }}
         run: |
           curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Hi, <br> <br> Account provisioned, head over to https://cldcvr-sso.awsapps.com/start#/ to access the sandbox. <br><br> <em>Note: Access to the temporary account will be revoked automatically after the time has elapsed. <h4><br><br> USE THE SANDBOX RESPONSIBLY<h4> <br></em>"}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}/reply' | jq '.'
           curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X PUT -d '{ "priority":1, "status":5, "custom_fields": {"cf_sub_type": "Access","cf_status_reason": "Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}' | jq '.'
 
       - name: "Workflow Status Slack Notification"
-        if: ${{ failure() || cancelled() }}
-        uses: cldcvr/slack-notify-action@main
+        if: ${{ failure() && env.ENABLE_SLACK_NOTIFICATION || cancelled() && env.ENABLE_SLACK_NOTIFICATION }}
+        uses: vishal-kapse/slack-notify-action@v1.0
         with:
           message: "AWS sandbox provisioning - account provisioning job has failed"
           status: ${{ job.status }}
