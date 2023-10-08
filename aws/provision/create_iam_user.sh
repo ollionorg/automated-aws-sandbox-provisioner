@@ -33,6 +33,9 @@ create_iam_user() {
     echo "Email: $email"
     echo "Initial Password: $initial_password"
     echo "User created and console access enabled with $SANDBOX_USER_ACCESS_POLICY."
+
+    echo "- Primary IAM UserName : ${username}" >> $GITHUB_STEP_SUMMARY
+    echo "- Temporary Password   : ${initial_password}" >> $GITHUB_STEP_SUMMARY
 }
 
 if [ $# -eq 0 ]; then
