@@ -556,7 +556,7 @@ main() {
         echo -e "\nUpdating SSO details in workflow files"
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
         if [ -f "../../.github/workflows/aws-provision.yml" ]; then
-          find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+          find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=${SSO_ENABLED} -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
           echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
         else
           echo "Warning: aws-provision.yml not found. Please make sure the file is present or clone the repo properly."
@@ -567,7 +567,7 @@ main() {
     else
       echo -e "${YELLOW}\nSSO is not enabled. Skipping SSO-related commands${NC}"
       echo "Updating SSO flag in workflows"
-      find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+      find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=${SSO_ENABLED} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
     echo -e "${RED}----------------------------------------------------${NC}"
