@@ -77,11 +77,11 @@ function create_account() {
 banner "Starting the Job"
 
 #Get the required ARNs
-if [ -z $(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_MANAGEMENT_ROLE_HERE`].Arn' --output text) ]; then
+if [ -z $(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_LAMBDA_ROLE_HERE`].Arn' --output text) ]; then
   echo -e "\n$(date) - Role not available. \nPlease follow the prerequisite doc present under aws/prerequisite/admin_setup.sh and create the required role"
   exit 1
 else
-  export LAMBDA_ROLE=$(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_MANAGEMENT_ROLE_HERE`].Arn' --output text)
+  export LAMBDA_ROLE=$(aws iam list-roles --query 'Roles[?RoleName==`REPLACE_LAMBDA_ROLE_HERE`].Arn' --output text)
   echo -e "\n$(date) - LAMBDA_ROLE: $LAMBDA_ROLE will be used for lambda deployment"
 fi
 
