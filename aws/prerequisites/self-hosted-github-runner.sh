@@ -21,7 +21,8 @@ TRUST_POLICY_JSON='{
     {
       "Effect": "Allow",
       "Principal": {
-        "Service": "ec2.amazonaws.com"
+        "Service": "ec2.amazonaws.com",
+        "AWS": "arn:aws:iam::REPLACE_AWS_MANAGEMENT_ACCOUNT:role/REPLACE_GITHUB_RUNNER_ROLE_NAME"
       },
       "Action": "sts:AssumeRole"
     }

@@ -620,6 +620,9 @@ EOL
     find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAL -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "github workflows updated"
     sleep 2
+    find . -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_GITHUB_RUNNER_ROLE_NAME=${GITHUB_RUNNER_ROLE_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    echo "self hosted runner script updated"
+    sleep 2
 
     echo -e "\n${GREEN}Substitution Complete.${NC}"
     # Validate the JSON file existence and readability for the provisioner policy
@@ -658,7 +661,7 @@ EOL
 
     # Create the secret in AWS Secrets Manager
     create_aws_secret "$SECRET_NAME" "$SECRET_KEY_NAME" "$github_token"
-
+    export MANAGEMENT_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
     export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -s -X POST \
       -H "Authorization: token $github_token" \
       -H "Accept: application/vnd.github.v3+json" \
