@@ -338,8 +338,28 @@ attach_policy_to_role() {
 create_aws_role() {
     local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
     local policy_name="$2"
+    # Define your JSON policy in a variable
+    local MGMT_ROLE_POLICY_JSON='
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "organizations.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    }'
 
-    if ! aws iam create-role --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": "organizations.amazonaws.com"},"Action": "sts:AssumeRole"}]}' &>/dev/null; then
+#    if ! aws iam create-role --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": "organizations.amazonaws.com"},"Action": "sts:AssumeRole"}]}' &>/dev/null; then
+#        print_message "Failed to create the IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'. Possibly due to duplicate name or permission issues" "$RED"
+#        exit 1
+#    fi
+
+    # Create the IAM role with the policy
+    if ! aws iam create-role --role-name "$SANDBOX_MANAGEMENT_ROLE_NAME" --assume-role-policy-document "$MGMT_ROLE_POLICY_JSON" &>/dev/null; then
         print_message "Failed to create the IAM Role: '$SANDBOX_MANAGEMENT_ROLE_NAME'. Possibly due to duplicate name or permission issues" "$RED"
         exit 1
     fi
