@@ -148,8 +148,31 @@ check_admin_access() {
 create_ou() {
     local ou_name="$1"
     local parent_ou="$2"
-    OU_ID_CREATED=$(aws organizations create-organizational-unit --parent-id "$parent_ou" --name "$ou_name" | jq -r '.OrganizationalUnit.Id')
-    echo "$OU_ID_CREATED"
+
+    # Attempt to create the OU, but capture any errors in a variable
+    create_ou_result=$(aws organizations create-organizational-unit --parent-id "$parent_ou" --name "$ou_name" 2>&1)
+
+    # Check if the result contains the error indicating a duplicate OU
+    if [[ $create_ou_result =~ "DuplicateOrganizationalUnitException" ]]; then
+        # If a duplicate OU exists, try to get its ID
+        existing_ou_id=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_ou" |
+                            jq -r '.OrganizationalUnits[] | select(.Name == "'"$ou_name"'") | .Id')
+
+        if [ -n "$existing_ou_id" ]; then
+            echo "$existing_ou_id"
+        else
+            echo "OU with the same name already exists"
+            echo "Failed to retrieve existing OU ID."
+            exit 1
+        fi
+    elif [[ $create_ou_result =~ "Arn" ]]; then
+        # If the OU was created successfully, echo its ID
+        OU_ID_CREATED=$(echo "$create_ou_result" | jq -r '.OrganizationalUnit.Id')
+        echo "$OU_ID_CREATED"
+    else
+        echo "An error occurred while creating the OU: $create_ou_result"
+        exit 1
+    fi
 }
 
 # Function to add OU to the array
