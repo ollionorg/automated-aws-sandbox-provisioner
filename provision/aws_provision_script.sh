@@ -1,5 +1,3 @@
-#!/bin/bash
-
 ### This script is intended to create temporary time based AWS sandbox accounts.
 
 
@@ -38,11 +36,9 @@ function create_account() {
     #Create account
     echo -e "\n\nCreating AWS sandbox account for ${USER_EMAIL} and the access will be revoked in ${DURATION} hours\n"
 
-    export EMAIL_DOMAIN="${ADMIN_EMAIL#*@}"
-
     CREATE_REQUEST_ID=$(
       aws organizations create-account \
-        --email "${ADMIN_EMAIL}+${ACCOUNT_NAME}@${EMAIL_DOMAIN}" \
+        --email "${ADMIN_EMAIL}+${ACCOUNT_NAME}@cldcvr.com" \
         --account-name "${ACCOUNT_NAME}" \
         --region ${AWS_REGION} \
         --iam-user-access-to-billing ALLOW \
@@ -154,36 +150,20 @@ sso(){
   echo -e "\n=========================================================================="
 }
 
-if [[ $SSO_ENABLED = "true" ]]; then
-    #SSO for requestor
-    sso ${USER_EMAIL}
+#SSO for requestor
+sso ${USER_EMAIL}
 
-    #SSO for additional users
-    if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
-      echo "No additional users specified to add to this account."
-    else
-      ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
-
-      IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
-      for email in "${USERS[@]}"; do
-        sso "$email"
-      done
-    fi
+#SSO for additional users
+if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
+  echo "No additional users specified to add to this account."
 else
-    bash create_iam_user.sh ${USER_EMAIL}
-    #IAM user for additional emails
-    if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
-      echo "No additional users specified to add to this account."
-    else
-      ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
+  ADDITIONAL_USER_EMAILS=${ADDITIONAL_USER_EMAILS//, /,}
 
-      IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
-      for email in "${USERS[@]}"; do
-        bash create_iam_user.sh "$email"
-      done
-    fi
+  IFS=',' read -ra USERS <<< "$ADDITIONAL_USER_EMAILS"
+  for email in "${USERS[@]}"; do
+    sso "$email"
+  done
 fi
-
 
 ##################################################################
 

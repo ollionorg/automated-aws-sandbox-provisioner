@@ -1,252 +1,133 @@
-> Replace the contents accordingly
+# Temporary Sandbox Account Provisioner
 
----
+Welcome to the Temporary Sandbox Account Provisioner documentation! This document provides a comprehensive overview of our solution for creating temporary, time-based sandbox accounts for individuals and teams. We have designed this provisioner to address a range of challenges related to cost management, security, and ease of account management within organizations.
 
-# cldcvr-repo-template
-Template for repo creation in CldCvr GitHub Organization
-
-This repo contains the essential files required to create a repo using best practices. The filenames and it's usage is in below table.
-
-# Usage
-
-| File Name | Location | Usage |
-| --- | --- | --- |
-| README.md | `root` | Contains the details of contents present in the repo. For example, it can contain the version of Terraform and it's usage steps |
-| CODEOWNERS | `root` | Contains the ownership of various folders present in the repo. This is useful when raising a PR, so the CODEOWNERS are assigned as reviewers automatically. More details [here](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) |
-| LICENSE | `root` | Contains the license information for the repo depending on the case of OSS. Check with your organizational policies. |
-| CONTRIBUTING.md | `root` | A CONTRIBUTING.md file, in your open source repository or site, provides potential project contributors with a short guide to how they can help with your project. More details [here](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/setting-guidelines-for-repository-contributors) |
-| .gitignore | `root` | gitignore file is a text file that tells Git which files or folders to ignore in a project. |
-| SUPPORT.md | `root` | Contains the usage for raising support related to the project. Can vary from organization to organization. |
-| PULL_REQUEST_TEMPLATE.md | `.github/` | This file triggers project contributors to automatically see the template's contents in a new pull request body. The template can customize and standardize the information you'd like included when contributors create pull requests. |
-| `<workflow_name>.yml` | `.github/workflows/` | Contains workflow files for automated CI/CD integrations with GitHub Actions or 3rd party extensions |
-
----
-
-> The below content is referred from [joelparkerhenderson/github-special-files-and-paths](https://github.com/joelparkerhenderson/github-special-files-and-paths)
-# GitHub special files and paths
-
-<img src="README.png" alt="GitHub special files and paths" style="width: 100%;"/>
-
-GitHub uses special files such as `README` and `LICENSE`, and special paths such as `/.github` and `/docs`, to improve repository managment and developer interactions.  This page is a summary. We welcome pull requests.
-
-* [Introduction](#introduction)
-* [README](#readme)
-* [CHANGELOG](#changelog)
-* [LICENSE](#license)
-* [SUPPORT](#support)
-* [SECURITY](#security)
-* [CODE_OF_CONDUCT](#code_of_conduct)
-* [CONTRIBUTING](#contributing)
-* [CONTRIBUTORS](#contributors)
-* [AUTHORS](#authors)
-* [ACKNOWLEDGMENTS](#acknowledgments)
-* [CODEOWNERS](#codeowners)
-* [ISSUE_TEMPLATE](#issue_template)
-* [PULL_REQUEST_TEMPLATE](#pull_request_template)
-* [CITATION.cff](#citation-cff)
-* [FUNDING](#funding)
-* [dependabot.yml](#dependabotyml)
-* [workflows](#workflows)
-* [Jekyll](#jekyll)
-
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Key Benefits](#key-benefits)
+3. [Use Cases](#use-cases)
+4. [Features](#features)
+5. [Getting Started](#getting-started)
+6. [Documentation](#documentation)
+7. [FAQ](#faq)
+8. [Support](#support)
+9. [Contributing](#contributing)
+10. [License](#license)
 
 ## Introduction
 
-GitHub special files can typically be written with a variety of formats and file name extensions:
+The Temporary Sandbox Account Provisioner is a solution designed to automate the creation and management of temporary sandbox accounts for users or teams within your organization. These sandbox accounts are time-limited and serve as dedicated environments for various purposes such as proof of concept (POC), testing, experimentation, and more.
 
-  * Freeform text, such as `README` or `README.txt`.
+## Key Benefits
 
-  * Markup formats, such as `README.markdown` or `README.asciidoc` - see [markups](https://github.com/github/markup/blob/master/README.md#markups)
+Our provisioner offers several key benefits for organizations:
 
-  * Custom syntaxes, such as the file `CODEOWNERS`.
+### Cost Management
+- **Cost Control**: The provisioner helps control costs by automatically cleaning up sandbox accounts after a specified duration. This prevents the unnecessary accumulation of resources and associated costs.
 
-GitHub special files are typically located at the repository top level or in special paths:
+### Security
+- **Reduced Attack Surface**: By isolating sandbox accounts, it reduces the attack surface, limiting the potential impact of security breaches or vulnerabilities.
 
-  * `/.github` is a hidden dot file directory.
+### Management
+- **Automation**: The solution is completely automated, simplifying the process of account creation, assignment, and cleanup.
+- **Reusability**: It allows for the reuse of sandbox accounts from a pool, reducing administrative overhead.
 
-  * `/docs` is a typical documentation directory.
+## Use Cases
 
-  * Custom paths, such as the directory `ISSUE_TEMPLATE`.
+The Temporary Sandbox Account Provisioner is a versatile tool that can address a variety of use cases within your organization:
 
-The special files and paths are sometimes also known as community health files, recommended repository files, well-known configurations, etc.
+- **Proof of Concept (POC)**: Provide dedicated environments for POCs without impacting production resources.
+- **Testing and Quality Assurance**: Enable testing and QA teams to work in isolated environments.
+- **Training and Learning**: Create temporary accounts for training purposes.
+- **Development and Experimentation**: Facilitate experimentation and development in isolated sandboxes.
 
-For a general overview see [building a strong community](https://help.github.com/categories/building-a-strong-community/) and [GitHub's Open Source Guides](https://opensource.guide/).
+## Features
 
+Our provisioner offers a range of features to meet your organization's needs:
 
-## README
+- **Automated Account Creation**: Easily create sandbox accounts with predefined configurations.
+- **Time-Based Expiry**: Set a duration for sandbox accounts, ensuring automatic cleanup.
+- **Pool of Reusable Accounts**: Maintain a pool of sandbox accounts for efficient resource allocation.
+- **Security Isolation**: Isolate sandbox accounts from production resources to enhance security.
+- **Detailed Logging**: Keep track of account provisioning and cleanup activities for auditing.
 
-  * File: `README` or `README.txt` or `README.md` etc.
+## Getting Started
 
-  * Help: <https://help.github.com/articles/about-readmes/>
+To get started with the Temporary Sandbox Account Provisioner, please refer to our [Getting Started Guide](getting-started.md). This guide will walk you through the setup and configuration process, helping you quickly deploy the solution within your organization.
 
-  * Awesome: list: <https://github.com/matiassingers/awesome-readme>
+## Documentation
 
-This file that explains your project, what it does, why it is useful, etc. 
+Our documentation is organized into the following sections:
 
-This file is often the first item a visitor will see when visiting your repository, because GitHub automatically shows this file to repository visitors.
+- [Installation](installation.md): Instructions for installing and configuring the provisioner.
+- [Usage](usage.md): Detailed usage guidelines and examples.
+- [Configuration](configuration.md): Configure the provisioner to align with your organization's requirements.
+- [Troubleshooting](troubleshooting.md): Common issues and solutions.
+- [Advanced Features](advanced-features.md): Explore advanced capabilities and customization options.
 
+## FAQ
 
-## CHANGELOG
+Have questions? Check out our [FAQ section](faq.md) for answers to common queries and concerns.
 
-  * File: `CHANGELOG` or `CHANGELOG.txt` or `CHANGELOG.md` etc. 
+## Support
 
-This file explains a reposity's notable changes, updates, versions, bug fixes, and the like. This file name convention has been around since the early days of the web.
+For technical support or assistance, please contact our support team at support@example.com.
 
+## Contributing
 
-## LICENSE
+We welcome contributions from the community! If you have suggestions, bug reports, or would like to contribute code, please review our [Contributing Guidelines](contributing.md).
 
-  * File: `LICENSE` or `LICENSE.txt` or `LICENSE.md` etc. 
+## License
 
-  * Help: <https://help.github.com/articles/adding-a-license-to-a-repository/>
+This project is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute it as needed within your organization.
 
-This file explains the respostory's legal license, such as any legal rights, any copyright restrictions, etc. If you include a detectable license in your repository, people who visit your repository will see it at the top of the repository page.
+Thank you for choosing the Temporary Sandbox Account Provisioner. We hope this solution helps streamline your organization's workflows and enhances your resource management capabilities.
 
-If you want help to choose a license, then try https://choosealicense.com
+################################
 
-If your project is significant, or contains other peoples' work or intellectual property, then you may want to consult with a lawyer who can help you with your specific goals and needs. If you don't provide a license, then in some locations a default copyright law will apply.
+## Workflow
 
+### Account Provisioning
 
-## SUPPORT
+The account provisioning workflow is as follows:
 
-  * File: `SUPPORT` or `SUPPORT.txt` or `SUPPORT.md` etc. 
+1. A user initiates the workflow by providing their email, team, access duration, and purpose.
+2. If the access duration requires approval, a helpdesk ticket is created, and approval is requested.
+3. Once approved, the tool provisions an AWS sandbox account for the user's team.
+4. The user receives a notification with the necessary details to access the sandbox account.
 
-This file explains how a reader can get help with the repository and project. Github links this file on the page "New Issue". Unlike the "CONTRIBUTING" file, GitHub does not link this file on the page "New Pull Request".
+### Account Cleanup (Nuke)
 
+The account cleanup (nuke) workflow is as follows:
 
-## SECURITY
+1. An event is triggered to initiate the cleanup process for a specific account.
+2. The tool removes SSO access for all users from the account and cleans up all resources using `aws-nuke`.
+3. The account is moved from the Sandbox Organizational Unit (OU) to a Suspended OU.
 
-  * File: `SECURITY` or `SECURITY.txt` or `SECURITY.md` etc.
+## Usage
 
-  * Help: <https://help.github.com/en/articles/adding-a-security-policy-to-your-repository>
+To provision a sandbox account, follow these steps:
 
-This file explains the project's security policies, such as a list of versions that are currently being maintained with security updates. This file also provides instructions on how users can submit a report of a vulnerability. 
+1. Open a new GitHub workflow dispatch event.
+2. Provide the required input parameters: `EMAIL`, `TEAM`, `DURATION`, and `PURPOSE`.
 
-GitHub links to this file, under the "Policy" link on the "Security" tab of your repository.
+To initiate an account cleanup (nuke), follow these steps:
 
+1. Open a new GitHub repository dispatch event with the `aws_sandbox_nuke` type.
+2. Provide the payload with `ACCOUNT_ID_TO_NUKE` representing the account to be cleaned up.
 
-## CODE_OF_CONDUCT
+## Configuration
 
-  * File: `CODE_OF_CONDUCT` or `CODE_OF_CONDUCT.txt` or `CODE_OF_CONDUCT.md` etc.
+Configure the environment variables in your GitHub repository to customize the behavior of the provisioning and cleanup workflows. Details can be found in the respective workflow sections of this repository.
 
-  * Help: <https://help.github.com/articles/adding-a-code-of-conduct-to-your-project/>
+## License
 
-  * Awesome: list: <https://i-sight.com/resources/18-of-the-best-code-of-conduct-examples/>
+This project is licensed under the [MIT License](LICENSE).
 
-This file explains how to engage in a community, and how to inclusive environment that respects all people, and how to address any problems among members of your project's community.
+## Contact
 
+For support and inquiries, please contact the CloudCover Helpdesk: [CloudCover Helpdesk](https://cloudcover-helpdesk.freshdesk.com).
 
-## CONTRIBUTING
+---
 
-  * File: `CONTRIBUTING` or `CONTRIBUTING.txt` or `CONTRIBUTING.md` etc.
-
-  * Help: <https://help.github.com/articles/setting-guidelines-for-repository-contributors/>
-
-  * Awesome: list: <https://github.com/mntnr/awesome-contributing>
-
-This file explains how people can contribute to the project. This file can help verify people are submitting well-formed pull requests and opening useful issues. 
-
-GitHub links to this file, on the page "New Issue" and the page "New Pull Request".
-
-
-## CONTRIBUTORS
-
-  * File: `CONTRIBUTORS` or `CONTRIBUTORS.txt` or `CONTRIBUTORS.md` etc. 
-
-This file explains who has contributed to the project. When we use a `CONTRIBUTORS` file in our projects, we ask people how they want to be listed, such as by their name, handle, email address, website link, etc. 
-
-Compare this file to the file `AUTHORS`.
-
-
-## AUTHORS
-
-  * File: `AUTHORS` or `AUTHORS.txt` or `AUTHORS.md` etc. 
-
-This file lists people who are significant authors of the project, such as the people who are legally related to the work. The GNU project states "Only the contributions that are legally significant for copyright purposes (see Legally Significant) need to be listed. Small contributions, bug reports, ideas, etc., can be omitted." 
-
-Compare this file to the file `CONTRIBUTORS`.
-
-
-## ACKNOWLEDGMENTS
-
-  * File: `ACKNOWLEDGMENTS` or `ACKNOWLEDGMENTS.txt` or `ACKNOWLEDGMENTS.md` etc. 
-
-This file explains relevant related work, such as other projects that are dependencies, or libraries, or modules, or have their own copyrights or licenses that you want to include in your project.
-
-
-## CODEOWNERS
-
-  * File: `CODEOWNERS`
-
-  * Help: <https://help.github.com/articles/about-codeowners/>
-
-This file defines individuals or teams that are responsible for code in a repository. 
-
-Code owners are automatically requested for review when someone opens a pull request that modifies code that they own. When someone with admin or owner permissions has enabled required reviews, they also can optionally require approval from a code owner before the author can merge a pull request in the repository.
-
-
-## ISSUE_TEMPLATE
-
-  * File: `ISSUE_TEMPLATE`
-
-  * Help: <https://help.github.com/articles/creating-an-issue-template-for-your-repository/>
-
-  * Awesome: list: <https://github.com/devspace/awesome-github-templates>
-
-When you add an issue template to your repository, project contributors will automatically see the template's contents in the issue body. Templates customize and standardize the information you'd like included when contributors open issues.
-
-See <https://blog.github.com/2018-01-25-multiple-issue-and-pull-request-templates/>
-
-To add multiple issue templates to a repository create an `ISSUE_TEMPLATE/` directory in your project root. Within that `ISSUE_TEMPLATE/` directory you can create as many issue templates as you need, for example `ISSUE_TEMPLATE/bugs.md`.
-
-
-## PULL_REQUEST_TEMPLATE
-
-  * File: `PULL_REQUEST_TEMPLATE` or can be a subdirectory
-
-  * Help: <https://help.github.com/articles/creating-a-pull-request-template-for-your-repository/>
-
-  * Awesome: list: <https://github.com/devspace/awesome-github-templates>
-
-This file triggers project contributors to automatically see the template's contents in a new pull request body. The template can customize and standardize the information you'd like included when contributors create pull requests.
-
-See <https://blog.github.com/2018-01-25-multiple-issue-and-pull-request-templates/>
-
-You can create a `PULL_REQUEST_TEMPLATE/` subdirectory in any of the supported folders to contain multiple pull request templates. Use the template query parameter to specify the template that will automatically fill the pull request body. For more information, see "[About automation for issues and pull requests with query parameters.](https://help.github.com/articles/about-automation-for-issues-and-pull-requests-with-query-parameters/)"
-
-
-## CITATION.cff
-
-  * File: `CITATION.cff`
-
-  * Help: <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files>
-
-This file explains how you would like people to cite your work. The citation file format is plain text with human-readable and machine-readable citation information.
-
-When you add this file to the default branch root directory of your repository, then GitHub automatically links to it from the repository landing page.
-
-
-## FUNDING.yml
-
-  * File: `.github/FUNDING.yml`
-
-  * Help: <https://docs.github.com/en/github/administering-a-repository/managing-repository-settings/displaying-a-sponsor-button-in-your-repository>
-
-You can configure your sponsor button by adding a  file in your repository on the default branch. You can configure the button to include sponsored developers in GitHub Sponsors, external funding platforms, or a custom funding URL.
-
-
-## dependabot.yml
-
-  * File: `.github/dependabot.yml`
-
-  * Help: <https://github.com/dependabot>
-
-Dependabot is a GitHub tool that provides automated dependency updates. To enable updates, create a Dependabot configuration file and add it to a repository. The file describes the dependencies to update, where dependency manifests are located, etc. If Dependbot discovers that an update is available, then Dependabot sends you a pull request to update your dependency.
-
-
-## Workflows
-
-  * Directory: `.github/workflows`
-
-  * Help: <https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions>
-
-A workflow is a configurable automated process made up of one or more jobs. You must create a YAML file to define your workflow configuration. Workflow files use YAML syntax, and must have file extension `.yml` or `.yaml`.
+Feel free to contribute to this project by submitting pull requests or opening issues.

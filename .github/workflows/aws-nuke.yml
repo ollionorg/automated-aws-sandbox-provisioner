@@ -6,14 +6,19 @@ on:
     types: [ aws_sandbox_nuke ]
 
 env:
-  ACCOUNT_ID: "559677651209" #Management account
-  AWS_REGION: "us-east-1"
-  ORG_MANAGEMENT_ROLE: "OrganizationAccountAccessRole"
-  SSO_INSTANCE_ARN: "arn:aws:sso:::instance/ssoins-72230e0790e87c67"
-  IDENTITY_STORE_ID: "d-90676437e3"
-  ROLE_NAME: "account-management-switch-role"
-  HELPDESK_URL: 'https://cloudcover-helpdesk.freshdesk.com'
+  MANAGEMENT_ACCOUNT_ID: "REPLACE_AWS_MANAGEMENT_ACCOUNT"
+  AWS_REGION: "REPLACE_AWS_DEFAULT_REGION"
+  ORG_MANAGEMENT_ROLE: "OrganizationAccountAccessRole" # Default role created by AWS when a new account is created under an organization
+  SSO_ENABLED: "REPLACE_SSO_ENABLED_FLAG_HERE"
+  SSO_INSTANCE_ARN: "INSTANCE_ARN_PLACEHOLDER"
+  IDENTITY_STORE_ID: "IDENTITY_STORE_ID_PLACEHOLDER"
+  MANAGEMENT_ROLE_NAME: "REPLACE_MANAGEMENT_ROLE_HERE"
+  ADMINISTRATOR_ARN: "REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE"
   ACCOUNT_ID_TO_NUKE: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}
+  HELPDESK_URL: "REPLACE_HELPDESK_URL_PLACEHOLDER"
+  FRESHDESK_API_KEY: ${{ secrets.FRESHDESK_API_KEY }}
+  ENABLE_SLACK_NOTIFICATION: REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER
+  SANDBOX_SLACK_WEBHOOK: ${{ secrets.SANDBOX_SLACK_WEBHOOK }}
 
 defaults:
   run:
@@ -22,7 +27,7 @@ defaults:
 jobs:
   nuke-setup:
     name: "aws-nuke"
-    runs-on: "cldcvr-pvt-runner-aws"    
+    runs-on: "REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER"
     permissions:
       id-token: write
       contents: read
@@ -35,29 +40,21 @@ jobs:
           rm -rf ./.??* || true
           ls -la ./
           if [ ${{ github.event.client_payload.TICKET_ID }} -eq 0 ]; then
-              echo "SKIP=true" >> $GITHUB_OUTPUT
+              echo "TICKET_UPDATE=false" >> $GITHUB_OUTPUT
           else
-              echo "SKIP=false" >> $GITHUB_OUTPUT
+              echo "TICKET_UPDATE=true" >> $GITHUB_OUTPUT
           fi
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
           unzip -q /tmp/awscliv2.zip -d /tmp
           rm /tmp/awscliv2.zip
           sudo /tmp/aws/install --update
           rm -rf /tmp/aws/
-      - name: "Load secrets from 1Password"
-        uses: 1password/load-secrets-action@v1.3.1
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          FRESHDESK_API: op://cldcvr-admins-common-vault/FRESHDESK_TOKEN_AUDIT_CLDCVR/credential
-          SANDBOX_SLACK_WEBHOOK: op://cldcvr-sandbox-provisioner-vault/SANDBOX_SLACK_WEBHOOK/password
 
       - name: "Remind user about access expiring in 15 minutes"
-        if: ${{ steps.skip_step.outputs.SKIP == 'false' }}
+        if: ${{ steps.skip_step.outputs.TICKET_UPDATE == 'true' }}
         run: |
 
-          curl -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body": "<h2>IMPORTANT</h2> Access to temporary aws sandbox will be <b>revoked in 15 minutes</b>, please take necessary action if required. <br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
+          curl -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X POST -d '{"body": "<h2>IMPORTANT</h2> Access to temporary aws sandbox will be <b>revoked in 15 minutes</b>, please take necessary action if required. <br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
 
           DURATION=900
           ANIMATION_CHARS="-\|/"
@@ -69,8 +66,10 @@ jobs:
             sleep 30
           done
           echo -e "\nTime for cleanup 🧹🗑️"
+
       - name: "Clone Git Repo"
-        uses: actions/checkout@v2.3.5
+        uses: actions/checkout@v3
+
       - name: "Setup aws-nuke"
         run: |
           wget -c https://github.com/rebuy-de/aws-nuke/releases/download/v2.16.0/aws-nuke-v2.16.0-linux-amd64.tar.gz
@@ -78,9 +77,10 @@ jobs:
           mv aws-nuke-v2.16.0-linux-amd64 aws-nuke
           sudo mv aws-nuke /usr/local/bin/aws-nuke
           rm aws-nuke-v2.16.0-linux-amd64.tar.gz
+
       - name: "Configure creds for mgmt account"
         run: |
-          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.ACCOUNT_ID}}:role/${{env.ROLE_NAME}}" --role-session-name "${{env.ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.REPLACE_AWS_MANAGEMENT_ACCOUNT}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
           unset AWS_SESSION_TOKEN
@@ -95,7 +95,8 @@ jobs:
           echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
 
       - name: "Remove SSO access for all users from ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
-        run: bash aws/cleanup/remove_sso.sh
+        run: bash aws/cleanup/remove_user_access.sh
+
       - name: "Configure AWS credentials for ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }} account provisioned as temporary sandbox"
         run: |
           aws configure list
@@ -113,6 +114,7 @@ jobs:
           AWS_SESSION_TOKEN=${CREDS[2]}
           echo "::add-mask::$AWS_SESSION_TOKEN"
           echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+
       - name: "Validate account to nuke, update nuke config and set account alias"
         run: |
           if [ $(aws sts get-caller-identity --output json | jq -r '.Account') -ne "${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}" ]; then
@@ -132,17 +134,19 @@ jobs:
           else
             echo "Account alias already exists"
           fi
+
       - name: "Run aws-nuke"
         run: |
           echo "Cleaning all the resources in the sandbox account - ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
-          aws-nuke -c nuke-config.yaml --force --force-sleep 5 --no-dry-run 2>&1 | tee -a ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_artifact_1.txt
+          aws-nuke -c nuke-config.yaml --force --force-sleep 5 --no-dry-run 2>&1 | tee -a ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_cleanup_artifact.txt
         continue-on-error: true
-      - name: "Configure AWS credentials for ${{env.ACCOUNT_ID}} account - management"
+
+      - name: "Configure AWS credentials for ${{env.REPLACE_AWS_MANAGEMENT_ACCOUNT}} account - management"
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
           unset AWS_SESSION_TOKEN
-          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.ACCOUNT_ID}}:role/${{env.ROLE_NAME}}" --role-session-name "${{env.ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.REPLACE_AWS_MANAGEMENT_ACCOUNT}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
           AWS_ACCESS_KEY_ID=${CREDS[0]}
           echo "::add-mask::$AWS_ACCESS_KEY_ID"
           echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
@@ -173,20 +177,22 @@ jobs:
           aws events delete-rule --name $FUNCTION_NAME
           
           echo "Lambda function and event bridge schedule rule deleted for account : ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
-          name: workflow artifact
-          path: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_artifact_1.txt
+          name: aws nuke artifact
+          path: ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_cleanup_artifact.txt
+
       - name: "Add account access revoked comment on ticket"
-        if: ${{ steps.skip_step.outputs.SKIP == 'false' }}
+        if: ${{ steps.skip_step.outputs.TICKET_UPDATE == 'true' }}
         run: |
-          curl -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body": "Access to temporary sandbox revoked</b> <br><br>Thankyou. <br><br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
+          curl -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X POST -d '{"body": "Access to temporary sandbox revoked</b> <br><br>Thankyou. <br><br>","private": true,"notify_emails": ["'${{ github.event.client_payload.USER_EMAIL }}'"]}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ github.event.client_payload.TICKET_ID }}/notes'
 
       - name: "Workflow Status Slack Notification"
-        if: failure()
-        uses: cldcvr/slack-notify-action@main
+        if: ${{ failure() && env.ENABLE_SLACK_NOTIFICATION || cancelled() && env.ENABLE_SLACK_NOTIFICATION }}
+        uses: vishal-kapse/slack-notify-action@v1.0
         with:
           message: "AWS Sandbox Provisioner - Nuke workflow has failed"
           status: ${{ job.status }}
