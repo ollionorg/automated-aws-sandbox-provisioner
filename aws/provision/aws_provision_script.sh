@@ -170,6 +170,26 @@ if [[ $SSO_ENABLED = "true" ]]; then
       done
     fi
 else
+    echo "-------------------------------"
+    echo "Configuring creds for the sandbox account"
+    CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${NEW_ACCOUNT_ID}:role/${ORG_MANAGEMENT_ROLE}" --role-session-name "SandBox_IAM_User_Configuration_Session" --duration-seconds 900 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+    unset AWS_ACCESS_KEY_ID
+    unset AWS_SECRET_ACCESS_KEY
+    unset AWS_SESSION_TOKEN
+
+    AWS_ACCESS_KEY_ID=${CREDS[0]}
+    echo "::add-mask::$AWS_ACCESS_KEY_ID"
+    echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+    AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+    echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+    echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+    AWS_SESSION_TOKEN=${CREDS[2]}
+    echo "::add-mask::$AWS_SESSION_TOKEN"
+    echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+
+    echo "-------------------------------"
+    echo "Adding IAM User/Users to the account"
+    echo "-------------------------------"
     bash create_iam_user.sh ${USER_EMAIL}
     #IAM user for additional emails
     if [[ -z "$ADDITIONAL_USER_EMAILS" ]]; then
@@ -182,13 +202,29 @@ else
         bash create_iam_user.sh "$email"
       done
     fi
+
+    echo "-------------------------------"
+    echo "Configuring creds for the management account"
+    unset AWS_ACCESS_KEY_ID
+    unset AWS_SECRET_ACCESS_KEY
+    unset AWS_SESSION_TOKEN
+    CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${MANAGEMENT_ACCOUNT_ID}:role/${MANAGEMENT_ROLE_NAME}" --role-session-name "${MANAGEMENT_ROLE_NAME}" --duration-seconds 1000 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+    AWS_ACCESS_KEY_ID=${CREDS[0]}
+    echo "::add-mask::$AWS_ACCESS_KEY_ID"
+    echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
+    AWS_SECRET_ACCESS_KEY=${CREDS[1]}
+    echo "::add-mask::$AWS_SECRET_ACCESS_KEY"
+    echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY >> $GITHUB_ENV
+    AWS_SESSION_TOKEN=${CREDS[2]}
+    echo "::add-mask::$AWS_SESSION_TOKEN"
+    echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
+    echo "-------------------------------"
 fi
 
 
 ##################################################################
 
 echo -e "\n$(date) - Creating Lambda function and schedule to revoke access"
-
 
 if [[ -z $TICKET_ID ]]; then
   TICKET_ID=0
