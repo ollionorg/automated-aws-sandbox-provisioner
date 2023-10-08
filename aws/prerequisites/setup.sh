@@ -573,7 +573,7 @@ EOL
     # Append the esac to close the case statement
     echo "esac" >> "$TEAM_OU_MAPPING_OUTPUT"
 
-    TEAM_OPTIONS="-"$'\n'
+    TEAM_OPTIONS=""$'\n'
     for team_name in "${TEAM_NAMES[@]}"; do
         TEAM_OPTIONS+="          - $team_name"$'\n'
     done
