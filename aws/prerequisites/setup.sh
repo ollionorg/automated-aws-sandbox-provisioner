@@ -9,6 +9,7 @@ export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
 export LAMBDA_POLICY_NAME="SandboxLambdaPolicy"
 export lambda_policy_file="sandbox_lambda_policy.json"
 export lambda_role_name="SandboxLambdaRole"
+export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
 export MANAGED_POLICY_ARN_FOR_SANDBOX_USERS="arn:aws:iam::aws:policy/AdministratorAccess" # Specify the AWS managed policy for AdministratorAccess
 export PERMISSION_SET_NAME="SandboxAdministratorAccess"                                   # Define the name for the permission set
 export SECRET_NAME="sandbox/git"
