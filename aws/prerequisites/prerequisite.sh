@@ -25,10 +25,11 @@ export SSO_ENABLED="true"                               # set to true if your or
 export REQUIRES_MANAGER_APPROVAl="true"                 # set to true if approval is required for sandbox account of duration more than below APPROVAL_DURATION hours
 export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
 export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
-export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"                                       # e.g aws-admins@yourdomain.com
+export AWS_ADMINS_EMAIL="aws-admins@yourdomain.com"     # e.g aws-admins@yourdomain.com
 export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
-export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team")                        [ Please use the same syntax as example ]
-
+export TEAM_NAMES=("dev-team" "qa-team" "devops-team")  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
+export FRESHDESK_URL=""                                 # Leave blank if not applicable. In this case freshdesk APIs are used. Provide freshdesk api url like 'https://your_freshdesk_domain.freshdesk.com'
+export ENABLE_SLACK_NOTIFICATION=""
 export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
 export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
 export INSTANCE_TYPE="t2.micro"
@@ -39,8 +40,8 @@ export GREEN='\033[0;32m'
 export RED='\033[0;31m'
 export YELLOW='\033[1;33m'
 export NC='\033[0m' # No Color
-export TEAM_SANDBOX_OUs=()
-export TEAM_POOL_OUs=()
+export TEAM_SANDBOX_OUs=() # Keep blank
+export TEAM_POOL_OUs=() # Keep blank
 
 sleep 1
 
@@ -65,8 +66,47 @@ if [[ -z $AWS_ADMINS_EMAIL ]]; then
   exit 1
 fi
 
-ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
-EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
+if [[ -z $FRESHDESK_URL ]]; then
+    export ENABLE_HELPDESK_NOTIFICATION="false"
+    export FRESHDESK_URL="NA"
+else
+    export ENABLE_HELPDESK_NOTIFICATION="true"
+    echo -e "You have provided Freshdesk API url as $FRESHDESK_URL"
+    echo -e "Make sure GitHub secret '${YELLOW}FRESHDESK_API_KEY${NC}' is added in the same repository Secrets"
+    echo -e "$GREEN"
+    read -rp "Do you want to continue? (y/n): " continue
+    echo -e "$NC"
+    if [[ "$continue" =~ ^[Yy]$ ]]; then
+        true
+    else
+        echo -e "${RED}Exiting...${NC}"
+        exit 0
+    fi
+fi
+
+
+##########################################################
+
+if [[ $ENABLE_SLACK_NOTIFICATION == "true" ]]; then
+    echo -e "You have opted to enable slack notification in the workflow"
+    echo -e "Make sure GitHub secret '${YELLOW}SANDBOX_SLACK_WEBHOOK${NC}' is added in the same repository Secrets"
+    echo -e "The secret should contain Incoming Slack Webhook" #TODO
+    echo -e "$GREEN"
+    read -rp "Do you want to continue? (y/n): " continue
+    echo -e "$NC"
+    if [[ "$continue" =~ ^[Yy]$ ]]; then
+        true
+    else
+        echo -e "${RED}Exiting...${NC}"
+        exit 0
+    fi
+else
+    export ENABLE_SLACK_NOTIFICATION="false"
+fi
+
+#TODO
+#ADMIN_EMAIL_PRINCIPAL="${AWS_ADMINS_EMAIL%%@*}"  # Gets everything before the last "@"
+#EMAIL_DOMAIN="${AWS_ADMINS_EMAIL#*@}"
 
 # Check if at least one team is defined
 if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
@@ -519,9 +559,9 @@ EOL
     echo "txt file updated"
     sleep 2
     find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
-    echo "shell script file updated"
+    echo "script file updated"
     sleep 2
-    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAl -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "github workflows updated"
     sleep 2
 

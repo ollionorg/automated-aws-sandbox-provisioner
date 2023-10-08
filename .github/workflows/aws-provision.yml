@@ -53,8 +53,10 @@ env:
   APPROVAL_HOURS: REPLACE_APPROVAL_HOURS_PLACEHOLDER
   ENABLE_HELPDESK_NOTIFICATION: REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER
   HELPDESK_URL: "REPLACE_HELPDESK_URL_PLACEHOLDER"
+  FRESHDESK_API_KEY: ${{ secrets.FRESHDESK_API_KEY }}
   ENABLE_SLACK_NOTIFICATION: REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER
   SANDBOX_SLACK_WEBHOOK: ${{ secrets.SANDBOX_SLACK_WEBHOOK }}
+
 
 defaults:
   run:
@@ -134,7 +136,7 @@ jobs:
           CLOUD: "AWS"
           REASON: ${{ inputs.PURPOSE }}
         run: |
-          TICKET_ID=$(curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -d '{ "description": "<h3><br>Support ticket created on behalf of '"$EMAIL"' for temporary '"$CLOUD"' sandbox account access</h3><br><b>Details:</b><br>Email address: '"$EMAIL"' <br>Duration of access required: '"$DURATION"'<br>Purpose of access: '"$REASON"' <br> Github workflow url: '"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"' <br> <br><em>Note: This needs no manual intervention. Ticket will be updated once access is provisioned. </em><br><br><h4>Thank you</h4>", "subject": "[CC-SANDBOX] ${{ inputs.TEAM }} - Temporary '"$CLOUD"' sandbox account request - '$EMAIL'", "email": "'$EMAIL'", "priority": 2, "status": 2, "type": "Service Request", "custom_fields" : { "cf_sub_type" : "Normal" } }' -X POST '${{ env.HELPDESK_URL }}/api/v2/tickets' | jq -r '.id')
+          TICKET_ID=$(curl -s -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -d '{ "description": "<h3><br>Support ticket created on behalf of '"$EMAIL"' for temporary '"$CLOUD"' sandbox account access</h3><br><b>Details:</b><br>Email address: '"$EMAIL"' <br>Duration of access required: '"$DURATION"'<br>Purpose of access: '"$REASON"' <br> Github workflow url: '"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"' <br> <br><em>Note: This needs no manual intervention. Ticket will be updated once access is provisioned. </em><br><br><h4>Thank you</h4>", "subject": "[CC-SANDBOX] ${{ inputs.TEAM }} - Temporary '"$CLOUD"' sandbox account request - '$EMAIL'", "email": "'$EMAIL'", "priority": 2, "status": 2, "type": "Service Request", "custom_fields" : { "cf_sub_type" : "Normal" } }' -X POST '${{ env.HELPDESK_URL }}/api/v2/tickets' | jq -r '.id')
           echo "Ticket url : ${{ env.HELPDESK_URL }}/a/tickets/$TICKET_ID"
            if [[ -z "$TICKET_ID" || "$TICKET_ID" == "null" ]]; then
              echo "Error: Ticket was not created properly"
@@ -157,8 +159,8 @@ jobs:
       - name: "Notify about decline of request"
         if: ${{ failure() && steps.approval.outcome == 'failure' && env.ENABLE_HELPDESK_NOTIFICATION }}
         run: |
-          curl -v -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Looks like, your request was not approved. <br> We could not proceed. Sorry for the inconvinence caused. <br><br> Closing the ticket."}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
-          curl -v -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X PUT -d '{"priority":1,"status":5,"custom_fields":{"cf_status_reason":"Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}'
+          curl -v -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Looks like, your request was not approved. <br> We could not proceed. Sorry for the inconvinence caused. <br><br> Closing the ticket."}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
+          curl -v -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X PUT -d '{"priority":1,"status":5,"custom_fields":{"cf_status_reason":"Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}'
 
       - name: "Get approver from GitHUb Issue comment"
         if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' && env.REQUIRES_APPROVAL }}
@@ -196,7 +198,7 @@ jobs:
              --arg message "<b>Good News!!</b> <br><br>Temporary sandbox request is approved by $APPROVER. <br><br> Account provisioning is in process. <br> <br> You will be notified once the account is provisioned. <br><br> Stay tuned.." \
              '{"body" : $message}'
              )
-          curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d "$json_data" '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
+          curl -s -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X POST -d "$json_data" '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ steps.ticket.outputs.ticket }}/reply' | jq '.'
 
       - name: "Workflow Status Slack Notification"
         if: ${{ failure() || cancelled() }}
@@ -261,8 +263,8 @@ jobs:
       - name: "Add account provisioned comment"
         if: ${{ needs.setup-job.outputs.REQ_APPROVAL == 'true' && env.ENABLE_HELPDESK_NOTIFICATION }}
         run: |
-          curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Hi, <br> <br> Account provisioned, head over to https://cldcvr-sso.awsapps.com/start#/ to access the sandbox. <br><br> <em>Note: Access to the temporary account will be revoked automatically after the time has elapsed. <h4><br><br> USE THE SANDBOX RESPONSIBLY<h4> <br></em>"}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}/reply' | jq '.'
-          curl -s -u ${{ env.FRESHDESK_API }}:X -H "Content-Type: application/json" -X PUT -d '{ "priority":1, "status":5, "custom_fields": {"cf_sub_type": "Access","cf_status_reason": "Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}' | jq '.'
+          curl -s -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X POST -d '{"body" : "Hi, <br> <br> Account provisioned, head over to https://cldcvr-sso.awsapps.com/start#/ to access the sandbox. <br><br> <em>Note: Access to the temporary account will be revoked automatically after the time has elapsed. <h4><br><br> USE THE SANDBOX RESPONSIBLY<h4> <br></em>"}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}/reply' | jq '.'
+          curl -s -u ${{ env.FRESHDESK_API_KEY }}:X -H "Content-Type: application/json" -X PUT -d '{ "priority":1, "status":5, "custom_fields": {"cf_sub_type": "Access","cf_status_reason": "Completed"}}' '${{ env.HELPDESK_URL }}/api/v2/tickets/${{ needs.ticket-creation-and-approval.outputs.TICKET }}' | jq '.'
 
       - name: "Workflow Status Slack Notification"
         if: ${{ failure() && env.ENABLE_SLACK_NOTIFICATION || cancelled() && env.ENABLE_SLACK_NOTIFICATION }}
