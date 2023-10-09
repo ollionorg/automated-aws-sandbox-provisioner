@@ -8,13 +8,13 @@ Generally, we do not use GitHub as a support forum. For any usage questions that
 
 Please seek support in the following ways:
 
-1. :book: **Read the documentation and other guides** for the project to see if you can figure it out on your own. These should be located in a root `docs/` directory. If there is an example project, explore that to learn how it works to see if you can answer your question.
+1. :book: **Read the documentation and other guides** for the project to see if you can figure it out on your own. These should be located in root directory in form of README.
 
 1. :bulb: **Search for answers and ask questions on [Stack Overflow](https://stackoverflow.com).** This is the most appropriate place for debugging issues specific to your use of the project, or figuring out how to use the project in a specific way.
 
-1. :memo: As a **last resort**, you may open an issue on GitHub to ask for help. However, please clearly explain what you are trying to do, and list what you have already attempted to solve the problem. Provide code samples, but **do not** attach your entire project for someone else to debug. Review our [contributing guidelines](https://github.com/cldcvr/cldcvr-repo-template/blob/main/CONTRIBUTING.md).
+1. :memo: As a **last resort**, you may open an issue on GitHub to ask for help. However, please clearly explain what you are trying to do, and list what you have already attempted to solve the problem. Provide code samples, but **do not** attach your entire project for someone else to debug.
 
-## What NOT to do 
+## What NOT to do
 
 Please **do not** do any the following:
 
