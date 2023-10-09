@@ -80,7 +80,7 @@ jobs:
 
       - name: "Configure creds for mgmt account"
         run: |
-          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.MANAGEMENT_ROLE_NAME}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.MANAGEMENT_ACCOUNT_ID}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
           unset AWS_SESSION_TOKEN
@@ -146,7 +146,7 @@ jobs:
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
           unset AWS_SESSION_TOKEN
-          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.MANAGEMENT_ROLE_NAME}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.MANAGEMENT_ACCOUNT_ID}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
           AWS_ACCESS_KEY_ID=${CREDS[0]}
           echo "::add-mask::$AWS_ACCESS_KEY_ID"
           echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID >> $GITHUB_ENV
