@@ -154,6 +154,13 @@ sso(){
   echo -e "\n=========================================================================="
 }
 
+#################################################
+# workflow summary
+echo "AWS Sandbox Provisioned :rocket:" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+#################################################
+
+
 if [[ $SSO_ENABLED = "true" ]]; then
     #SSO for requestor
     sso ${USER_EMAIL}
@@ -307,10 +314,9 @@ rm lambda_function.py lambda_function_zip.zip
 banner "Completed. Find the summary below"
 
 echo "Temporary account provisioned : ${NEW_ACCOUNT_ID}"
-echo "SSO for user ${USER_EMAIL} configured with ADMINISTRATOR access"
+echo "SSO/IAM for user ${USER_EMAIL} configured with ADMINISTRATOR access"
 echo "Created schedule for revoking the access after ${DURATION} hours"
 
-echo "AWS Sandbox Provisioned :rocket:" >> $GITHUB_STEP_SUMMARY
-echo "" >> $GITHUB_STEP_SUMMARY
 echo "- Temporary account id : ${NEW_ACCOUNT_ID}" >> $GITHUB_STEP_SUMMARY
-echo "- Duration of access : ${DURATION} hours" >> $GITHUB_STEP_SUMMARY
+echo "- Duration of access   : ${DURATION} hours" >> $GITHUB_STEP_SUMMARY
+echo "- Happy Sandboxing !!" >> $GITHUB_STEP_SUMMARY
