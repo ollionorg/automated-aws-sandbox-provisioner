@@ -56,7 +56,11 @@ Our sandbox provisioner offers a range of features to meet your organization's n
 - **Pool of Reusable Accounts**: Maintain a pool of sandbox accounts for efficient resource allocation.
 - **Security Isolation**: Isolate sandbox accounts from production resources to enhance security.
 - **Logging**: Keep track of account provisioning and cleanup activities for auditing.
-
+- **Approval Workflow**: Implement approval workflows for sandbox accounts that require manager approval beyond specific duration.
+- **Integration with SSO**: Seamlessly integrate with AWS Single Sign-On (SSO) for user access management (optional).
+- **Helpdesk Integration**: Integrate with Freshdesk for helpdesk ticket notifications (optional).
+- **Slack Notifications**: Get Slack notifications for workflow events (optional).
+- 
 ## Getting Started 🚀
 
 To get started with the AWS Sandbox Account Provisioner, please refer to our [Getting Started Guide](GETTING_STARTED.md). This guide will walk you through the setup and configuration process, helping you quickly deploy the solution within your organization.
