@@ -17,7 +17,6 @@ export SECRET_KEY_NAME="git_token"
 export SELF_HOSTED_RUNNER_SG_NAME="SelfHostedRunnerSecurityGroup"
 export RUNNER_INSTANCE_PROFILE_NAME="GitHubRunnerInstanceProfile"
 export GITHUB_RUNNER_ROLE_NAME="GitHubRunnerRole"
-export SANDBOX_MANAGEMENT_ROLE_NAME="SandboxAccountManagementRole"
 export SSH_USER="ec2-user"
 export SELF_HOSTED_RUNNER_VPC_CIDR="10.129.10.0/26"
 export SELF_HOSTED_RUNNER_SUBNET_CIDR="10.129.10.0/28"
@@ -148,8 +147,31 @@ check_admin_access() {
 create_ou() {
     local ou_name="$1"
     local parent_ou="$2"
-    OU_ID_CREATED=$(aws organizations create-organizational-unit --parent-id "$parent_ou" --name "$ou_name" | jq -r '.OrganizationalUnit.Id')
-    echo "$OU_ID_CREATED"
+
+    # Attempt to create the OU, but capture any errors in a variable
+    create_ou_result=$(aws organizations create-organizational-unit --parent-id "$parent_ou" --name "$ou_name" 2>&1)
+
+    # Check if the result contains the error indicating a duplicate OU
+    if [[ $create_ou_result =~ "DuplicateOrganizationalUnitException" ]]; then
+        # If a duplicate OU exists, try to get its ID
+        existing_ou_id=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_ou" |
+                            jq -r '.OrganizationalUnits[] | select(.Name == "'"$ou_name"'") | .Id')
+
+        if [ -n "$existing_ou_id" ]; then
+            echo "$existing_ou_id"
+        else
+            echo "OU with the same name already exists"
+            echo "Failed to retrieve existing OU ID."
+            exit 1
+        fi
+    elif [[ $create_ou_result =~ "Arn" ]]; then
+        # If the OU was created successfully, echo its ID
+        OU_ID_CREATED=$(echo "$create_ou_result" | jq -r '.OrganizationalUnit.Id')
+        echo "$OU_ID_CREATED"
+    else
+        echo "An error occurred while creating the OU: $create_ou_result"
+        exit 1
+    fi
 }
 
 # Function to add OU to the array
@@ -337,17 +359,16 @@ attach_policy_to_role() {
 }
 
 # Function to create an AWS IAM Role and attach the policy to it
-create_aws_role() {
-    local SANDBOX_MANAGEMENT_ROLE_NAME="$1"
-    local policy_name="$2"
+create_management_role() {
     # Define your JSON policy in a variable
-    local MGMT_ROLE_POLICY_JSON='{
+    local MGMT_ROLE_POLICY_JSON
+    MGMT_ROLE_POLICY_JSON='{
       "Version": "2012-10-17",
       "Statement": [
         {
           "Effect": "Allow",
           "Principal": {
-            "Service": "organizations.amazonaws.com"
+            "AWS": "arn:aws:iam::'$(aws sts get-caller-identity --query "Account" --output text)':role/'${GITHUB_RUNNER_ROLE_NAME}'"
           },
           "Action": "sts:AssumeRole"
         }
@@ -367,6 +388,35 @@ create_aws_role() {
     fi
 }
 
+create_lambda_role() {
+    # Define your JSON policy in a variable
+    local LAMBDA_ROLE_POLICY_JSON='{
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "lambda.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    }'
+
+    create_aws_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+
+    # Create the IAM role with the policy
+    if ! aws iam create-role --role-name "$lambda_role_name" --assume-role-policy-document "$LAMBDA_ROLE_POLICY_JSON" &>/dev/null; then
+        print_message "Failed to create the IAM Role: '$lambda_role_name'" "$RED"
+        exit 1
+    fi
+
+    if check_policy_attachment "$lambda_role_name" "$LAMBDA_POLICY_NAME"; then
+        echo "Using existing IAM Role: '$lambda_role_name'"
+    else
+        attach_policy_to_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+    fi
+}
 
 create_aws_secret() {
     local secret_name="$1"
@@ -534,7 +584,7 @@ main() {
         echo -e "\nUpdating SSO details in workflow files"
         # Replace the instance ARN and Identity Store ID in the aws-provision.yml GitHub workflow file
         if [ -f "../../.github/workflows/aws-provision.yml" ]; then
-          find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+          find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=${SSO_ENABLED} -D INSTANCE_ARN_PLACEHOLDER=$SSO_INSTANCE_ARN -D IDENTITY_STORE_ID_PLACEHOLDER=$SSO_IDENTITY_STORE_ID -D REPLACE_SANDBOX_USER_PERMISSION_SET_ARN_HERE=$SANDBOX_USER_PERMISSION_SER_ARN {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
           echo "Updated aws-provision.yml with the instance ARN and Identity Store ID."
         else
           echo "Warning: aws-provision.yml not found. Please make sure the file is present or clone the repo properly."
@@ -545,7 +595,7 @@ main() {
     else
       echo -e "${YELLOW}\nSSO is not enabled. Skipping SSO-related commands${NC}"
       echo "Updating SSO flag in workflows"
-      find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=false {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+      find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_SSO_ENABLED_FLAG_HERE=${SSO_ENABLED} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     fi
 
     echo -e "${RED}----------------------------------------------------${NC}"
@@ -591,7 +641,7 @@ EOL
     find . -type f -iname "*.txt" -exec bash -c "m4 -D REPLACE_REPO_OWNER_HERE=${REPO_OWNER} -D REPLACE_REPO_NAME_HERE=${REPO_NAME} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "txt file updated"
     sleep 2
-    find ../provision -type f -iname "create_iam_user.sh" -exec bash -c "m4 -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
+    find ../provision -type f -iname "*.sh" -exec bash -c "m4 -D REPLACE_LAMBDA_ROLE_HERE=${lambda_role_name} -D REPLACE_MANAGED_POLICY_ARN_FOR_SANDBOX_USERS=${MANAGED_POLICY_ARN_FOR_SANDBOX_USERS} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
     echo "script file updated"
     sleep 2
     find ../../.github/workflows -type f -iname "*.yml" -exec bash -c "m4 -D REPLACE_ENABLE_SLACK_NOTIFICATION_PLACEHOLDER=${ENABLE_SLACK_NOTIFICATION} -D REPLACE_HELPDESK_URL_PLACEHOLDER=${FRESHDESK_URL} -D REPLACE_ENABLE_HELPDESK_NOTIFICATION_PLACEHOLDER=${ENABLE_HELPDESK_NOTIFICATION} -D REPLACE_SELF_HOSTED_RUNNER_LABEL_PLACEHOLDER=${SELF_HOSTED_RUNNER_LABEL} -D REPLACE_REQUIRES_APPROVAl_PLACEHOLDER=$REQUIRES_MANAGER_APPROVAL -D REPLACE_APPROVAL_HOURS_PLACEHOLDER=$APPROVAL_DURATION -D REPLACE_TEAM_OU_MAPPING_OUTPUT=$TEAM_OU_MAPPING_OUTPUT -D REPLACE_WORKFLOW_TEAM_INPUT_OPTIONS=\"${TEAM_OPTIONS}\" -D REPLACE_MANAGEMENT_ROLE_HERE=${SANDBOX_MANAGEMENT_ROLE_NAME} -D REPLACE_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} -D REPLACE_AWS_MANAGEMENT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text) -D REPLACE_AWS_ADMIN_EMAIL=${AWS_ADMINS_EMAIL} {} > {}.m4  && cat {}.m4 > {} && rm {}.m4" \;
@@ -617,7 +667,7 @@ EOL
 
     # Check if the role already exists and prompt for reuse
     if ! check_existing_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"; then
-        create_aws_role "$SANDBOX_MANAGEMENT_ROLE_NAME" "$policy_name"
+        create_management_role
     fi
 
     # Check if the lambda policy already exists and prompt for reuse
@@ -630,12 +680,12 @@ EOL
 
     # Check if the role already exists and prompt for reuse
     if ! check_existing_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"; then
-        create_aws_role "$lambda_role_name" "$LAMBDA_POLICY_NAME"
+        create_lambda_role
     fi
 
     # Create the secret in AWS Secrets Manager
     create_aws_secret "$SECRET_NAME" "$SECRET_KEY_NAME" "$github_token"
-
+    export MANAGEMENT_ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
     export GITHUB_RUNNER_REGISTRATION_TOKEN=$(curl -s -X POST \
       -H "Authorization: token $github_token" \
       -H "Accept: application/vnd.github.v3+json" \

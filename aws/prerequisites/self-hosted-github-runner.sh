@@ -185,6 +185,10 @@ COMMANDS=(
   "curl -o actions-runner-linux-x64-2.309.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.309.0/actions-runner-linux-x64-2.309.0.tar.gz"
   "tar xzf ./actions-runner-linux-x64-2.309.0.tar.gz"
   "sudo yum install libicu -y"
+  "sudo dnf update && sudo dnf install docker"
+  "sudo systemctl start docker && sudo systemctl enable docker"
+  "sudo usermod -aG docker $SSH_USER && newgrp docker"
+  "sudo setfacl --modify user:$SSH_USER:rw /var/run/docker.sock"
   "./config.sh --url https://github.com/$REPO_OWNER/$REPO_NAME --token $GITHUB_RUNNER_REGISTRATION_TOKEN --name SandboxProvisionerGitHubRunner --labels self-hosted,$SELF_HOSTED_RUNNER_LABEL --unattended"
 )
 

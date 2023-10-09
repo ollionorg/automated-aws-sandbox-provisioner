@@ -8,20 +8,22 @@
         "organizations:ListRoots",
         "sso:CreateAccountAssignment",
         "sso:DescribeAccountAssignmentCreationStatus",
-        "lambda:GetLayerVersion",
         "lambda:GetFunction",
         "identitystore:ListUsers",
         "sso:DeleteAccountAssignment",
         "iam:ListRoles",
+        "iam:CreateUser",
+        "iam:CreateLoginProfile",
+        "iam:DeleteUser",
+        "iam:AttachUserPolicy",
         "organizations:CreateAccount",
         "organizations:ListAccountsForParent",
+        "organizations:ListCreateAccountStatus",
         "sso:ListAccountAssignments",
         "iam:PassRole",
         "organizations:ListAccounts",
         "organizations:ListParents",
         "events:ListRules",
-        "lambda:ListLayerVersions",
-        "lambda:ListLayers",
         "sts:GetCallerIdentity",
         "organizations:MoveAccount",
         "sso:DescribeAccountAssignmentDeletionStatus",
@@ -53,8 +55,8 @@
       ],
       "Resource": [
         "arn:aws:iam::*:role/OrganizationAccountAccessRole",
-        "arn:aws:events:REPLACE_AWS_DEFAULT_REGION:REPLACE_AWS_MANAGEMENT_ACCOUNT:rule/temp_sandbox*",
-        "arn:aws:lambda:REPLACE_AWS_DEFAULT_REGION:REPLACE_AWS_MANAGEMENT_ACCOUNT:function:temp_sandbox*"
+        "arn:aws:events:us-east-1:247638572346:rule/temp_sandbox*",
+        "arn:aws:lambda:us-east-1:247638572346:function:temp_sandbox*"
       ]
     }
   ]
