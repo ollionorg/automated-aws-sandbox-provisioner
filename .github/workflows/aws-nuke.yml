@@ -141,7 +141,7 @@ jobs:
           aws-nuke -c nuke-config.yaml --force --force-sleep 5 --no-dry-run 2>&1 | tee -a ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}_cleanup_artifact.txt
         continue-on-error: true
 
-      - name: "Configure AWS credentials for ${{env.REPLACE_AWS_MANAGEMENT_ACCOUNT}} account - management"
+      - name: "Configure AWS credentials for ${{env.MANAGEMENT_ACCOUNT_ID}} account - management"
         run: |
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
