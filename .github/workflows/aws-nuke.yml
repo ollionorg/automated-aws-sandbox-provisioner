@@ -80,7 +80,7 @@ jobs:
 
       - name: "Configure creds for mgmt account"
         run: |
-          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.REPLACE_AWS_MANAGEMENT_ACCOUNT}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
+          CREDS=( $(aws sts assume-role --role-arn "arn:aws:iam::${{env.MANAGEMENT_ROLE_NAME}}:role/${{env.MANAGEMENT_ROLE_NAME}}" --role-session-name "${{env.MANAGEMENT_ROLE_NAME}}" --duration-seconds 3600 --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text) )
           unset AWS_ACCESS_KEY_ID
           unset AWS_SECRET_ACCESS_KEY
           unset AWS_SESSION_TOKEN
