@@ -1,29 +1,13 @@
-# AWS Sandbox Provisioner
+# Automated AWS Sandbox Provisioner Setup
 
-AWS Sandbox Provisioner is a tool for automating the provisioning and management of sandbox AWS accounts for development and testing purposes. It enables you to create isolated AWS environments for different teams within your organization while ensuring security and cost control.
+Welcome to the Automated AWS Sandbox Provisioner! To ensure a seamless and hassle-free setup, please follow our comprehensive documentation.
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yourusername/aws-sandbox-provisioner/CI-CD?label=CI%2FCD&logo=github&style=flat-square)
-![GitHub](https://img.shields.io/github/license/yourusername/aws-sandbox-provisioner?style=flat-square)
+This documentation provides step-by-step instructions, configuration details, and best practices to help you get started quickly. Whether you're new to the system or an experienced user, our guide will assist you in provisioning AWS sandbox provisioner setup  effortlessly.
 
-## Table of Contents
-- [Features](#features)
-- [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [License](#license)
+If you encounter any issues or have questions along the way, check [FAQs's](FAQ.md)
 
-## Features
 
-- **Sandbox Account Creation**: Automate the creation of AWS sandbox accounts for different teams or departments.
-- **IAM Policy Management**: Easily manage IAM policies and roles for sandbox accounts.
-- **Self-Hosted GitHub Runner**: Optionally create and register self-hosted GitHub runners for each sandbox environment.
-- **Approval Workflow**: Implement approval workflows for sandbox accounts that require manager approval.
-- **Integration with SSO**: Seamlessly integrate with AWS Single Sign-On (SSO) for user access management.
-- **Helpdesk Integration**: Integrate with Freshdesk for helpdesk ticket notifications (optional).
-- **Slack Notifications**: Get Slack notifications for workflow events (optional).
+Let's get started on your automated sandbox provisioner setup journey! 🚀
 
 ## Getting Started
 
@@ -32,11 +16,12 @@ AWS Sandbox Provisioner is a tool for automating the provisioning and management
 Before you begin, make sure you have the following prerequisites:
 
 - [AWS CLI](https://aws.amazon.com/cli/) installed and configured with the necessary permissions.
-- [GitHub Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with appropriate repository access.
-- (Optional) Freshdesk API key if you plan to use Freshdesk for notifications.
+- [GitHub Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with scopes `repo` and `workflow`. [ Used to trigger automated cleanup of AWS sandbox account]
+- (Optional) Freshdesk API key if you plan to use Freshdesk for ticket creation and notifications.
 - (Optional) Slack webhook URL if you plan to enable Slack notifications.
+- `AdministratorAccess` to the AWS Management Account in your AWS organization to setup the provisioner. [ Can take help of your aws admins team to setup the prerequisites ]
 
-## Creating a New Repository from the template repo
+## Creating a New Repository from the template repository
 
 To create a new project based on this template, follow these steps:
 
@@ -50,18 +35,34 @@ After you have created your new repository from the template, you can clone it t
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/aws-sandbox-provisioner.git
+   git clone https://github.com/repo_owner/repo_name.git
    ```
-   
-2. Navigate to the project directory:
+
+2. Navigate to the prerequisites directory:
    ```bash
    cd aws/prerequisites
    ```
-3. Provide the required variables for the setup
+3. Open the setup script `setup.sh`
+- Verify then variables set.
+- Fill in the required input variables like
+```bash
+export AWS_DEFAULT_REGION=""                            # e.g "us-east-1" Identity Center default region used by management account
+export AWS_ADMINS_EMAIL=""                              # e.g "aws-admins@yourdomain.com" AWS admins DL required during sandbox account setup
+export SSO_ENABLED=""                                   # set to "true" if your organization has SSO enabled and uses AWS IAM Identity center or set to false
+export TEAM_NAMES=("")                                  # e.g ("dev-team" "qa-team" "devops-team") [ Please use the same syntax as example ]
+export REQUIRES_MANAGER_APPROVAL="true"                 # set to true if approval is required for sandbox account of duration more than APPROVAL_DURATION hours duration
+export APPROVAL_DURATION=8                              # Duration of hours of sandbox account request post which workflow requires manager's approval automatically.
+export SELF_HOSTED_RUNNER_LABEL="aws-sandbox-gh-runner" # Use default label "aws-sandbox-gh-runner" to create and register a runner for the sandbox provisioner workflow. or else use already created runner by changing the label value.
+export PARENT_OU_ID=""                                  # Keep blank to create the OUs under root in the organization by default.
+export FRESHDESK_URL=""                                 # Leave blank if not applicable. In this case freshdesk APIs are used for ticket creation and updates. Provide freshdesk api url like 'https://your_freshdesk_domain.freshdesk.com'
+export ENABLE_SLACK_NOTIFICATION=""                     # Set to true to enable slack notification in the workflows. Defaults to false
+```
+- Check the other variables defined, leave them as default wherever possible.
+4. Run the script:
    ```bash
-   bash prerequisites.sh
+   bash setup.sh
    ```
-3. Run the script:
-   ```bash
-   bash prerequisites.sh
-   ```
+5. Follow the prompts and act accordingly to finish the setup seamlesly 🚀
+
+##
+# That's it, you have done it !!
