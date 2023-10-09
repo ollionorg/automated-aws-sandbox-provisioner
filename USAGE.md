@@ -11,17 +11,22 @@ The account provisioning can be used to provision sandbox accounts
 
 
 1. Open Sandbox Provisioner GitHub repository.
-2. Head over to Actions tab
-   ![Screenshot](./screenshots/Actions_tab.png?text=Actions+tab+Screenshot+Here)
+2. Head over to the Actions tab
+
+   <img src="./screenshots/Actions_Tab.png" width="400" alt="Actions tab Screenshot Here">
 
 3. Select the AWS Sandbox Provisioner workflow
-   ![Screenshot](./screenshots/Action_Select.png?text=Actions+tab+Screenshot+Here)
+
+   <img src="./screenshots/Action_Select.png" width="400" alt="Actions tab Screenshot Here">
 
 4. Click on Run workflow and fill in the required input parameters: `EMAIL`, `TEAM`, `DURATION`, `PURPOSE` and `Additional User Emails` [Optional]
-   ![Screenshot](./screenshots/Options.png?text=Actions+tab+Screenshot+Here)
+
+   <img src="./screenshots/Options.png" width="400" alt="Actions tab Screenshot Here">
 
 5. Click Run workflow
-   ![Screenshot](./screenshots/Run_Workflow.png?text=Actions+tab+Screenshot+Here)
+
+   <img src="./screenshots/Run_Workflow.png" width="400" alt="Actions tab Screenshot Here">
+
 
 To know more, read : [HOW_DOES_PROVISIONING_WORK](#provisioning_steps) [TODO]
 
