@@ -104,8 +104,6 @@ fi
 # Check if at least one team is defined
 if [ ${#TEAM_NAMES[@]} -eq 0 ]; then
     echo -e "${RED}\nError: At least one team must be defined.${NC}"
-        echo -e "Please refer the OU prerequisite readme doc - ${YELLOW}aws/prerequisites/OU_PREREQUISITES.md${NC}"
-
     exit 1
 fi
 

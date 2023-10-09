@@ -95,7 +95,7 @@ jobs:
           echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
 
       - name: "Remove SSO access for all users from ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"
-        run: bash aws/cleanup/remove_user_access.sh
+        run: bash cleanup/remove_user_access.sh
 
       - name: "Configure AWS credentials for ${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }} account provisioned as temporary sandbox"
         run: |
@@ -124,7 +124,7 @@ jobs:
           fi
           
           echo "Updating the account id in nuke config"
-          awk '{sub(/REPLACE_ACCOUNT_ID/,"${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"); print}' aws/cleanup/nuke-config.yaml > nuke-config.yaml
+          awk '{sub(/REPLACE_ACCOUNT_ID/,"${{ github.event.client_payload.ACCOUNT_ID_TO_NUKE }}"); print}' cleanup/nuke-config.yaml > nuke-config.yaml
           echo "Review the account id and nuke config"
           cat nuke-config.yaml
           

@@ -97,7 +97,7 @@ jobs:
           fi
 
       - name: "Select Pool OU and Sandbox OU according to team"
-        working-directory: aws/provision
+        working-directory: provision
         id: "ou_select"
         env:
            INPUT_TEAM: ${{ inputs.TEAM }}
@@ -249,7 +249,7 @@ jobs:
           echo AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN >> $GITHUB_ENV
 
       - name: "Provision AWS Sandbox account"
-        working-directory: aws/provision/
+        working-directory: provision/
         env:
           USER_EMAIL: ${{ inputs.EMAIL }}
           ADDITIONAL_USER_EMAILS: ${{ inputs.ADDITIONAL_USER_EMAILS }}

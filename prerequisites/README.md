@@ -41,11 +41,11 @@ bash prerequisite.sh
 5. **Verify Script execution and Resources created in management account:**
 
    The script will create below resources if the default variable names were used
-    * Modify the policy files under `aws/prerequisites` and update variables
+    * Modify the policy files under `prerequisites` and update variables
     * Policies named `SandboxProvisionerPolicy` and `SandboxAccountManagementRole`
     * Roles named `SandboxAccountManagementRole` and `SandboxLambdaRole`
     * Create a secret in AWS secret manager and store `GITHUB_TOKEN`
-    * Modify the `lambda.py` file present under `aws/provision` and update variables
+    * Modify the `lambda.py` file present under `provision` and update variables
     * Modify the workflows under `.github/workflows` and update variables
 
 ## Important Notes
