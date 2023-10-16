@@ -1,0 +1,29 @@
+regions:
+  - us-east-1
+  - global
+  - ap-southeast-1
+
+account-blocklist:
+  - "999999999999" # production
+
+feature-flags:
+  disable-deletion-protection:
+    RDSInstance: true
+    EC2Instance: true
+    CloudformationStack: true
+  force-delete-lightsail-addons: true
+
+# Add account to nuke
+accounts:
+  "REPLACE_ACCOUNT_ID": #temporary aws sandbox account
+    filters:
+      IAMRole:
+        - "OrganizationAccountAccessRole"
+        - type: glob
+          value: "AWSReservedSSO_AdministratorAccess_*"
+        - type: glob
+          value: "AWSReservedSSO_*"
+      IAMRolePolicyAttachment:
+        - "OrganizationAccountAccessRole -> AdministratorAccess"
+        - type: glob
+          value: "AWSReservedSSO_AdministratorAccess_* -> AdministratorAccess"

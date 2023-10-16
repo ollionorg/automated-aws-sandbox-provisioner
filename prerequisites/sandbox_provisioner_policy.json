@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VisualEditor0",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:ListRoots",
+        "sso:CreateAccountAssignment",
+        "sso:DescribeAccountAssignmentCreationStatus",
+        "lambda:GetFunction",
+        "identitystore:ListUsers",
+        "sso:DeleteAccountAssignment",
+        "iam:ListRoles",
+        "iam:CreateUser",
+        "iam:CreateLoginProfile",
+        "iam:DeleteUser",
+        "iam:AttachUserPolicy",
+        "organizations:CreateAccount",
+        "organizations:ListAccountsForParent",
+        "organizations:ListCreateAccountStatus",
+        "sso:ListAccountAssignments",
+        "iam:PassRole",
+        "organizations:ListAccounts",
+        "organizations:ListParents",
+        "events:ListRules",
+        "sts:GetCallerIdentity",
+        "organizations:MoveAccount",
+        "sso:DescribeAccountAssignmentDeletionStatus",
+        "organizations:DescribeCreateAccountStatus"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "VisualEditor1",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutEvents",
+        "lambda:CreateFunction",
+        "events:DescribeRule",
+        "events:CreateEventBus",
+        "lambda:GetFunction",
+        "events:PutRule",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateAlias",
+        "events:DeleteRule",
+        "events:PutTargets",
+        "sts:AssumeRole",
+        "lambda:AddPermission",
+        "events:RemoveTargets",
+        "lambda:DeleteFunction",
+        "events:ListTargetsByRule",
+        "lambda:CreateAlias"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+        "arn:aws:events:REPLACE_AWS_DEFAULT_REGION:REPLACE_AWS_MANAGEMENT_ACCOUNT:rule/temp_sandbox*",
+        "arn:aws:lambda:REPLACE_AWS_DEFAULT_REGION:REPLACE_AWS_MANAGEMENT_ACCOUNT:function:temp_sandbox*"
+      ]
+    }
+  ]
+}
